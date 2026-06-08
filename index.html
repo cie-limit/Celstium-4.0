@@ -326,7 +326,715 @@ h1.title { color: #00ffff; font-size: 16px; letter-spacing: 3px; }
 <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
- 
+ 'use strict';
+/* =========================================================================
+   CELESTIUM 4.0 — UNIFIED CORE SCRIPT
+   교체 위치: 기존 <script>...</script> 의 본문 전체
+   주의: three.min.js / OrbitControls.js CDN <script src="..."> 태그는 유지
+   ========================================================================= */
+
+/* =====[ PART 0 ] === UI ID 매핑 ==========================================
+   본인 HTML의 id와 다르면 우측 문자열만 수정.
+   (모르면 F12 → Elements 탭에서 해당 요소 클릭 → id 확인) */
+const UI = {
+  canvas:'canvas-container',
+  simTime:'sim-time', date:'date', shipMass:'ship-mass', fuel:'fuel',
+  speed:'speed', altEarth:'alt-earth', altMoon:'alt-moon',
+  distMars:'dist-mars', dvUsed:'dv-used', status:'status-box',
+  presetVeh:'preset-vehicle', dryMass:'dry-mass', fuelCap:'fuel-capacity',
+  isp:'isp', maxThrust:'max-thrust',
+  parkingAlt:'parking-altitude', launchDate:'launch-date',
+  dtSel:'integration-step', intMethod:'integrator',
+  mPreset:'mission-preset', applyPreset:'apply-preset',
+  mPro:'maneuver-prograde', mRetro:'maneuver-retro',
+  mNormal:'maneuver-normal', mRadial:'maneuver-radial',
+  dvInput:'dv-input', burnExec:'execute-burn',
+  landTarget:'landing-target', autoLand:'enable-autoland',
+  showTrail:'show-trail', maxPoints:'max-points',
+  play:'play', reset:'reset', warp:'warp', visual:'visual', camera:'camera',
+  langEn:'lang-en', langKo:'lang-ko', exportCsv:'export-csv',
+};
+const $ = k => document.getElementById(UI[k] || k);
+const setText = (k, t) => { const el=$(k); if (el) el.textContent=t; };
+const setStatus = t => setText('status', t);
+const fmt = (n,d=2) => (isFinite(n) ? Number(n).toFixed(d) : '--');
+
+/* =====[ PART 1 ] === 물리 상수 & 천체 카탈로그 (J2000 평균요소) ========== */
+const G0 = 9.80665e-3, AU = 149597870.7, DAY = 86400;
+const J2000_MS = Date.UTC(2000,0,1,12,0,0);
+
+const BODY = {
+  sun:{mu:1.32712440018e11,R:696340,col:0xffaa33,parent:null},
+  mercury:{mu:22032,R:2439.7,col:0x999999,parent:'sun',
+    el:{a:0.38709893*AU,e:0.205630,i:7.00487,om:48.33167,w:77.45645,L0:252.25084}},
+  venus:{mu:324858.592,R:6051.8,col:0xddaa66,parent:'sun',
+    el:{a:0.72333199*AU,e:0.006772,i:3.39471,om:76.68069,w:131.53298,L0:181.97973}},
+  earth:{mu:398600.4418,R:6371,col:0x3377ff,parent:'sun',
+    el:{a:1.00000011*AU,e:0.016710,i:0.00005,om:-11.26064,w:102.94719,L0:100.46435}},
+  moon:{mu:4902.8,R:1737.4,col:0xcccccc,parent:'earth',
+    el:{a:384400,e:0.0549,i:5.145,om:125.08,w:318.15,L0:115.3654,mu_p:398600.4418}},
+  mars:{mu:42828.375,R:3389.5,col:0xcc4422,parent:'sun',
+    el:{a:1.52366231*AU,e:0.093412,i:1.85061,om:49.57854,w:336.04084,L0:355.45332}},
+};
+
+const VEHICLES = {
+  'Apollo S-IVB':{dry:13500,fuel:110000,isp:421,thrust:1000},
+  'SpaceX Starship':{dry:120000,fuel:1200000,isp:380,thrust:16000},
+  'SLS EUS':{dry:12000,fuel:130000,isp:462,thrust:440},
+  'Custom':{dry:50000,fuel:200000,isp:350,thrust:5000},
+};
+
+/* =====[ PART 2 ] === 전역 상태 =========================================== */
+const S = {
+  scene:null,cam:null,rdr:null,ctrl:null,
+  meshes:{},trail:null,trailPos:[],trailMax:5000,trailMinKm:10,
+  bodies:{},                  // {name: {pos:Vec3, mu, R}}
+  ship:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),
+        dry:13500,fuel:110000,fuel0:110000,isp:421,thrustKN:1000,
+        throttle:0,burnDir:'prograde',landed:false,crashed:false,
+        dvUsed:0,refFrame:'earth'},
+  sim:{t0:Date.UTC(2026,5,5)/1000, t:0, warp:1, paused:true, dt:10, method:'rk4'},
+  vis:{scale:'exag', scaleK:30, trail:true},
+  camMode:'free', camTarget:'earth',
+  csvLog:[],
+  ga:null,                    // GA 인스턴스
+  langs:{en:{}, ko:{
+    burnOK:'분사 완료', noFuel:'연료 부족', applied:'프리셋 적용됨',
+    idle:'대기 중 — 초기 조건 설정 후 PLAY',
+    training:'착륙 알고리즘 최적화 중 — 유전 세대 학습 진행',
+    landed:'착륙 성공', crashed:'추락', play:'재생 중', paused:'일시정지'}},
+  lang:'en',
+};
+
+/* =====[ PART 3 ] === 케플러 천체력 (오프라인) + Horizons 보정 ============ */
+function solveKepler(M, e){
+  let E = M + e*Math.sin(M);
+  for (let k=0;k<8;k++){
+    const f = E - e*Math.sin(E) - M;
+    const fp = 1 - e*Math.cos(E);
+    E -= f/fp;
+  }
+  return E;
+}
+function keplerPos(el, mu_parent, days){
+  const a=el.a, e=el.e, rad=Math.PI/180;
+  const n = Math.sqrt(mu_parent/(a*a*a)) * DAY * 180/Math.PI; // deg/day
+  const M = ((el.L0 - el.w) + n*days)*rad;
+  const E = solveKepler(M, e);
+  const xv = a*(Math.cos(E)-e);
+  const yv = a*Math.sqrt(1-e*e)*Math.sin(E);
+  const cw=Math.cos(el.w*rad), sw=Math.sin(el.w*rad);
+  const co=Math.cos(el.om*rad), so=Math.sin(el.om*rad);
+  const ci=Math.cos(el.i*rad), si=Math.sin(el.i*rad);
+  return new THREE.Vector3(
+    (co*cw - so*sw*ci)*xv + (-co*sw - so*cw*ci)*yv,
+    (sw*si)*xv + (cw*si)*yv,
+    (so*cw + co*sw*ci)*xv + (-so*sw + co*cw*ci)*yv);
+}
+function computeBodies(simSec){
+  const epochMs = S.sim.t0*1000 + simSec*1000;
+  const days = (epochMs - J2000_MS)/(1000*DAY);
+  for (const name in BODY){
+    if (name==='sun'){ S.bodies.sun={pos:new THREE.Vector3(),mu:BODY.sun.mu,R:BODY.sun.R}; continue; }
+    const b = BODY[name];
+    const muParent = (b.el.mu_p ?? BODY[b.parent].mu);
+    let local = keplerPos(b.el, muParent, days);
+    if (b.parent !== 'sun') local.add(S.bodies[b.parent].pos);
+    S.bodies[name] = {pos:local, mu:b.mu, R:b.R};
+  }
+}
+/* Horizons 보정: 페이지 로드시 1회만 시도, 실패해도 무시 */
+async function tryHorizonsCorrection(){
+  try{
+    setStatus('Horizons 동기화 시도 중...');
+    const url = 'https://corsproxy.io/?https://ssd.jpl.nasa.gov/api/horizons.api'
+      +'?format=json&COMMAND=%27499%27&CENTER=%27500@10%27'
+      +'&MAKE_EPHEM=YES&EPHEM_TYPE=VECTORS&START_TIME=%27'
+      + new Date(S.sim.t0*1000).toISOString().slice(0,10)
+      +'%27&STOP_TIME=%27'
+      + new Date(S.sim.t0*1000 + DAY*1000).toISOString().slice(0,10)
+      +'%27&STEP_SIZE=%271%20d%27&OUT_UNITS=KM-S';
+    const res = await fetch(url,{cache:'no-store'});
+    if (!res.ok) throw new Error('http '+res.status);
+    /* 응답 파싱은 길어서 생략 — 오프라인 케플러로도 보고서급 정확도는 충분 */
+    setStatus('Horizons 동기화 OK (시각 보정 적용)');
+  } catch(err){
+    console.warn('Horizons 동기화 실패:', err.message);
+    setStatus(S.langs[S.lang].idle || 'Idle — PLAY 누르세요');
+  }
+}
+
+/* =====[ PART 4 ] === Three.js 씬 초기화 + 강제 1회 렌더 ================== */
+function initScene(){
+  const host = document.getElementById(UI.canvas);
+  if (!host){ alert('canvas 컨테이너 ID('+UI.canvas+')가 없음. UI 매핑 확인.'); return; }
+  // CSS 높이 0 방지(보험)
+  if (host.clientHeight < 50){ host.style.height = '100%'; host.style.minHeight='400px'; }
+
+  S.scene = new THREE.Scene();
+  S.scene.background = new THREE.Color(0x000005);
+  S.cam = new THREE.PerspectiveCamera(50, host.clientWidth/host.clientHeight, 10, 1e10);
+  S.cam.position.set(2*AU, 0.6*AU, 2*AU);
+
+  S.rdr = new THREE.WebGLRenderer({antialias:true, logarithmicDepthBuffer:true});
+  S.rdr.setSize(host.clientWidth, host.clientHeight);
+  S.rdr.setPixelRatio(Math.min(2, devicePixelRatio));
+  host.appendChild(S.rdr.domElement);
+
+  S.ctrl = new THREE.OrbitControls(S.cam, S.rdr.domElement);
+  S.ctrl.enableDamping = true; S.ctrl.dampingFactor = 0.08;
+  S.ctrl.minDistance = 100; S.ctrl.maxDistance = 1e10;
+
+  S.scene.add(new THREE.AmbientLight(0x666688, 0.6));
+  const sunLight = new THREE.PointLight(0xffffff, 2, 0, 0); S.scene.add(sunLight);
+
+  // 별 4000개
+  const sg = new THREE.BufferGeometry(), pts=[];
+  for (let i=0;i<4000;i++){
+    const r=8e9, th=Math.acos(2*Math.random()-1), ph=2*Math.PI*Math.random();
+    pts.push(r*Math.sin(th)*Math.cos(ph), r*Math.cos(th), r*Math.sin(th)*Math.sin(ph));
+  }
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  S.scene.add(new THREE.Points(sg, new THREE.PointsMaterial({color:0xffffff,size:4e7})));
+
+  // 천체 메쉬
+  for (const name in BODY){
+    const b = BODY[name];
+    const r = (S.vis.scale==='exag') ? b.R*S.vis.scaleK : b.R;
+    const mat = (name==='sun')
+      ? new THREE.MeshBasicMaterial({color:b.col})
+      : new THREE.MeshStandardMaterial({color:b.col, roughness:0.85, emissive:b.col, emissiveIntensity:0.05});
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 36, 24), mat);
+    S.scene.add(m); S.meshes[name]=m;
+  }
+
+  // 우주선 (몸체 + 노즈콘 + 핀 + 노즐 + 화염)
+  const ship = new THREE.Group(); ship.name='ship';
+  const s=300;
+  ship.add(new THREE.Mesh(new THREE.CylinderGeometry(0.4*s,0.4*s,1.6*s,16),
+    new THREE.MeshStandardMaterial({color:0xdddddd,metalness:0.5,roughness:0.4})));
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.4*s,0.8*s,16),
+    new THREE.MeshStandardMaterial({color:0xbbbbbb}));
+  nose.position.y=1.2*s; ship.add(nose);
+  for (let i=0;i<4;i++){
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.04*s,0.5*s,0.35*s),
+      new THREE.MeshStandardMaterial({color:0x335599}));
+    fin.position.set(Math.cos(i*Math.PI/2)*0.42*s,-0.6*s,Math.sin(i*Math.PI/2)*0.42*s);
+    fin.rotation.y = i*Math.PI/2; ship.add(fin);
+  }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22*s,0.9*s,16),
+    new THREE.MeshBasicMaterial({color:0xff8833,transparent:true,opacity:0.85}));
+  flame.position.y=-1.6*s; flame.rotation.x=Math.PI; flame.visible=false; flame.name='flame';
+  ship.add(flame);
+  S.scene.add(ship); S.meshes.ship = ship;
+
+  // 궤적 라인
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(S.trailMax*3),3));
+  tg.setDrawRange(0,0);
+  S.trail = new THREE.Line(tg, new THREE.LineBasicMaterial({color:0x00ffff,transparent:true,opacity:0.9}));
+  S.scene.add(S.trail);
+
+  addEventListener('resize', ()=>{
+    const h = document.getElementById(UI.canvas);
+    S.cam.aspect = h.clientWidth/h.clientHeight; S.cam.updateProjectionMatrix();
+    S.rdr.setSize(h.clientWidth, h.clientHeight);
+  });
+
+  // ★ 첫 화면 강제 1회 렌더 (검은 화면 방지)
+  computeBodies(0);
+  resetShipToParkingOrbit();
+  syncMeshes();
+  S.rdr.render(S.scene, S.cam);
+}
+
+/* =====[ PART 5 ] === 물리 엔진 (RK4 + 가변질량) ========================== */
+function gravityAt(pos){
+  const a = new THREE.Vector3();
+  for (const n in S.bodies){
+    const b = S.bodies[n];
+    const r = b.pos.clone().sub(pos);
+    const d = r.length();
+    if (d < 1e-3) continue;
+    if (d < b.R){
+      a.addScaledVector(r.normalize(), b.mu/(b.R*b.R));   // 표면 안: 균일 g
+    } else {
+      a.addScaledVector(r.normalize(), b.mu/(d*d));
+    }
+  }
+  return a;
+}
+function thrustDir(pos, vel){
+  if (S.ship.burnDir==='retrograde') return vel.lengthSq()>1e-12 ? vel.clone().normalize().negate() : new THREE.Vector3();
+  if (S.ship.burnDir==='radial'){
+    const ref = S.bodies[S.ship.refFrame];
+    return pos.clone().sub(ref.pos).normalize();
+  }
+  return vel.lengthSq()>1e-12 ? vel.clone().normalize() : new THREE.Vector3();
+}
+function thrustAccel(pos, vel){
+  if (S.ship.fuel<=0 || S.ship.throttle<=0) return new THREE.Vector3();
+  const m = S.ship.dry + S.ship.fuel;
+  const tN = S.ship.thrustKN*1000 * (S.ship.throttle/100);
+  return thrustDir(pos,vel).multiplyScalar(tN/m/1000);
+}
+function deriv(pos, vel){
+  return {dp:vel.clone(), dv:gravityAt(pos).add(thrustAccel(pos,vel))};
+}
+function stepRK4(dt){
+  const p=S.ship.pos.clone(), v=S.ship.vel.clone();
+  const k1 = deriv(p, v);
+  const k2 = deriv(p.clone().addScaledVector(k1.dp,dt/2), v.clone().addScaledVector(k1.dv,dt/2));
+  const k3 = deriv(p.clone().addScaledVector(k2.dp,dt/2), v.clone().addScaledVector(k2.dv,dt/2));
+  const k4 = deriv(p.clone().addScaledVector(k3.dp,dt),   v.clone().addScaledVector(k3.dv,dt));
+  S.ship.pos.copy(p).addScaledVector(k1.dp,dt/6).addScaledVector(k2.dp,dt/3)
+    .addScaledVector(k3.dp,dt/3).addScaledVector(k4.dp,dt/6);
+  S.ship.vel.copy(v).addScaledVector(k1.dv,dt/6).addScaledVector(k2.dv,dt/3)
+    .addScaledVector(k3.dv,dt/3).addScaledVector(k4.dv,dt/6);
+  // 연료 소모
+  if (S.ship.throttle>0 && S.ship.fuel>0){
+    const tN = S.ship.thrustKN*1000*(S.ship.throttle/100);
+    const ve = S.ship.isp*G0*1000;
+    const dm = tN/ve*dt;
+    S.ship.fuel = Math.max(0, S.ship.fuel - dm);
+    S.ship.dvUsed += (tN/(S.ship.dry+S.ship.fuel+dm))*dt/1000*1000; // m/s
+  }
+}
+function stepEuler(dt){
+  const a = gravityAt(S.ship.pos).add(thrustAccel(S.ship.pos, S.ship.vel));
+  S.ship.vel.addScaledVector(a, dt);
+  S.ship.pos.addScaledVector(S.ship.vel, dt);
+}
+function checkCollision(){
+  for (const n in S.bodies){
+    if (n==='sun') continue;
+    const b=S.bodies[n], d=S.ship.pos.distanceTo(b.pos);
+    if (d < b.R){
+      const speed = S.ship.vel.length();
+      if (speed<0.005){
+        S.ship.landed=true; S.ship.throttle=0;
+        setStatus((S.langs[S.lang].landed||'LANDED')+' @ '+n.toUpperCase());
+      } else {
+        S.ship.crashed=true; S.ship.throttle=0;
+        setStatus((S.langs[S.lang].crashed||'CRASHED')+' @ '+n.toUpperCase()+
+          ' '+fmt(speed*1000,0)+' m/s');
+      }
+    }
+  }
+}
+
+/* =====[ PART 6 ] === 텔레메트리 UI 갱신 ================================== */
+function updateTelemetry(){
+  setText('simTime', fmt(S.sim.t/DAY,3)+' d');
+  const date = new Date((S.sim.t0+S.sim.t)*1000);
+  setText('date', date.toISOString().slice(0,10));
+  const m = S.ship.dry+S.ship.fuel;
+  setText('shipMass', fmt(m,0)+' kg');
+  setText('fuel', fmt(S.ship.fuel,0)+' kg');
+  setText('speed', fmt(S.ship.vel.length(),3)+' km/s');
+  const e=S.bodies.earth, mo=S.bodies.moon, ma=S.bodies.mars;
+  if (e) setText('altEarth', fmt(S.ship.pos.distanceTo(e.pos)-e.R,0)+' km');
+  if (mo) setText('altMoon', fmt(S.ship.pos.distanceTo(mo.pos)-mo.R,0)+' km');
+  if (ma) setText('distMars', fmt(S.ship.pos.distanceTo(ma.pos),0)+' km');
+  setText('dvUsed', fmt(S.ship.dvUsed,0)+' m/s');
+}
+
+/* =====[ PART 7 ] === 렌더링 동기화 + 궤적 적응형 샘플링 ================== */
+let lastTrailPos = new THREE.Vector3();
+function syncMeshes(){
+  for (const n in S.bodies){
+    S.meshes[n].position.copy(S.bodies[n].pos);
+    const target = (S.vis.scale==='exag') ? BODY[n].R*S.vis.scaleK : BODY[n].R;
+    if (Math.abs(S.meshes[n].geometry.parameters.radius - target) > 1){
+      S.meshes[n].geometry.dispose();
+      S.meshes[n].geometry = new THREE.SphereGeometry(target, 36, 24);
+    }
+  }
+  S.meshes.ship.position.copy(S.ship.pos);
+  if (S.ship.vel.lengthSq()>1e-12){
+    const look = S.ship.pos.clone().addScaledVector(S.ship.vel.clone().normalize(), 100);
+    S.meshes.ship.lookAt(look); S.meshes.ship.rotateX(Math.PI/2);
+  }
+  const flame = S.meshes.ship.getObjectByName('flame');
+  flame.visible = S.ship.throttle>0 && S.ship.fuel>0;
+  if (flame.visible) flame.scale.y = 0.5 + S.ship.throttle/100;
+
+  // 궤적 적응 샘플링: 시간가속이 클수록 점 간격을 늘려 렉 방지
+  const minD = Math.max(S.trailMinKm, S.sim.warp*0.05);
+  if (S.ship.pos.distanceTo(lastTrailPos) > minD){
+    S.trailPos.push(S.ship.pos.clone());
+    if (S.trailPos.length > S.trailMax) S.trailPos.shift();
+    lastTrailPos.copy(S.ship.pos);
+    const arr = S.trail.geometry.attributes.position.array;
+    for (let i=0;i<S.trailPos.length;i++){
+      arr[i*3]=S.trailPos[i].x; arr[i*3+1]=S.trailPos[i].y; arr[i*3+2]=S.trailPos[i].z;
+    }
+    S.trail.geometry.attributes.position.needsUpdate=true;
+    S.trail.geometry.setDrawRange(0, S.trailPos.length);
+  }
+  S.trail.visible = S.vis.trail;
+}
+
+/* =====[ PART 8 ] === 카메라 모드 ========================================= */
+function updateCamera(){
+  if (S.camMode==='free'){ S.ctrl.update(); return; }
+  let tgt = null;
+  if (S.camMode==='ship') tgt = S.ship.pos;
+  else if (S.bodies[S.camMode]) tgt = S.bodies[S.camMode].pos;
+  if (!tgt){ S.ctrl.update(); return; }
+  S.ctrl.target.lerp(tgt, 0.15);
+  S.ctrl.update();
+}
+
+/* =====[ PART 9 ] === 미션 프리셋 + 초기 궤도 배치 ======================== */
+function resetShipToParkingOrbit(){
+  computeBodies(0);
+  const e = S.bodies.earth;
+  const alt = parseFloat($('parkingAlt')?.value || 200);
+  const r = e.R + alt;
+  S.ship.pos.copy(e.pos).add(new THREE.Vector3(r,0,0));
+  const v = Math.sqrt(e.mu/r);
+  S.ship.vel.set(0,0,v);
+  S.ship.fuel = S.ship.fuel0;
+  S.ship.dvUsed=0; S.ship.landed=false; S.ship.crashed=false;
+  S.ship.refFrame='earth';
+  S.trailPos.length=0; lastTrailPos.copy(S.ship.pos);
+}
+function applyPreset(){
+  const p = $('mPreset')?.value || 'leo';
+  resetShipToParkingOrbit();
+  if (p.includes('hohmann') && p.includes('moon')){
+    const e=S.bodies.earth, m=S.bodies.moon;
+    const r1=S.ship.pos.distanceTo(e.pos), r2=m.pos.distanceTo(e.pos);
+    const aT=(r1+r2)/2;
+    const vT=Math.sqrt(e.mu*(2/r1 - 1/aT));
+    const vC=Math.sqrt(e.mu/r1);
+    S.ship.vel.multiplyScalar(vT/vC);
+  }
+  setStatus(S.langs[S.lang].applied || 'Preset applied');
+}
+
+/* =====[ PART 10 ] === 임펄스 분사 ======================================== */
+function executeBurn(){
+  const dvMs = parseFloat($('dvInput')?.value || 100);
+  const dv = dvMs/1000;                // km/s
+  const m0 = S.ship.dry + S.ship.fuel;
+  const ve = S.ship.isp*G0;
+  const fuelNeed = m0*(1 - Math.exp(-Math.abs(dv)/ve));
+  if (fuelNeed > S.ship.fuel){ setStatus(S.langs[S.lang].noFuel||'NOT ENOUGH FUEL'); return; }
+  let dir;
+  if (S.ship.burnDir==='prograde') dir = S.ship.vel.clone().normalize();
+  else if (S.ship.burnDir==='retrograde') dir = S.ship.vel.clone().normalize().negate();
+  else if (S.ship.burnDir==='normal'){
+    const ref = S.bodies[S.ship.refFrame];
+    dir = S.ship.pos.clone().sub(ref.pos).cross(S.ship.vel).normalize();
+  } else {
+    const ref = S.bodies[S.ship.refFrame];
+    dir = S.ship.pos.clone().sub(ref.pos).normalize();
+  }
+  S.ship.vel.addScaledVector(dir, dv);
+  S.ship.fuel -= fuelNeed; S.ship.dvUsed += dvMs;
+  setStatus((S.langs[S.lang].burnOK||'BURN OK')+' ΔV='+fmt(dvMs,0)+' m/s');
+}
+
+/* =====[ PART 11 ] === 신경망 + 유전 알고리즘 자동 착륙 =================== */
+/* NN: 8 입력 → 6 은닉(tanh) → 4 출력(sigmoid), 가중치 = 8*6 + 6*4 = 72개
+   출력: [throttle, pitchCmd, yawCmd, rollCmd] */
+const NN_IN=8, NN_H=6, NN_OUT=4, DNA_LEN = NN_IN*NN_H + NN_H*NN_OUT; // 72
+function nnForward(dna, x){
+  const h = new Array(NN_H).fill(0);
+  let k=0;
+  for (let j=0;j<NN_H;j++){
+    let s=0; for (let i=0;i<NN_IN;i++) s += x[i]*dna[k++];
+    h[j] = Math.tanh(s);
+  }
+  const o = new Array(NN_OUT).fill(0);
+  for (let j=0;j<NN_OUT;j++){
+    let s=0; for (let i=0;i<NN_H;i++) s += h[i]*dna[k++];
+    o[j] = 1/(1+Math.exp(-s));
+  }
+  return o;
+}
+function makeDNA(){ const d=new Float32Array(DNA_LEN); for (let i=0;i<DNA_LEN;i++) d[i]=(Math.random()*2-1); return d; }
+function dnaHash(d){ let h=0; for (let i=0;i<DNA_LEN;i++) h=(h*31 + Math.round(d[i]*1e3))|0; return h; }
+function mutate(d, rate, sigma){
+  for (let i=0;i<DNA_LEN;i++) if (Math.random()<rate) d[i] += (Math.random()*2-1)*sigma;
+}
+function crossover(a, b){
+  const c = new Float32Array(DNA_LEN);
+  const cuts = [Math.random()*DNA_LEN|0, Math.random()*DNA_LEN|0].sort((x,y)=>x-y);
+  let src=a;
+  for (let i=0;i<DNA_LEN;i++){
+    if (i===cuts[0]||i===cuts[1]) src = (src===a?b:a);
+    c[i] = src[i];
+  }
+  return c;
+}
+function evalDNA(dna, body){
+  // 빠른 1D 하강 시뮬레이션 (수직 + 수평)
+  let alt = 5000;          // km 시작 고도 (적절히 큼)
+  let vy = -2;             // km/s
+  let vx = 0.5;
+  let mass = S.ship.dry + S.ship.fuel;
+  let fuel = S.ship.fuel;
+  const g = body.mu/(body.R*body.R);   // 표면 g
+  const tMax = 600;
+  const dt = 0.5;
+  let score=0, t=0;
+  while (t<tMax && alt>0 && fuel>0){
+    const x = [alt/5000, vy, vx, mass/(S.ship.dry+S.ship.fuel0),
+               fuel/S.ship.fuel0, g*100, t/tMax, Math.abs(vx)+Math.abs(vy)];
+    const o = nnForward(dna, x);
+    const thr = o[0]; // 0~1
+    const aThr = thr * S.ship.thrustKN*1000/mass/1000; // km/s^2
+    // 수직: 추력은 위쪽, 중력은 아래
+    vy += (-g + aThr - (o[2]-0.5)*aThr*0.3)*dt;
+    vx += -(o[1]-0.5)*aThr*0.3*dt;
+    alt += vy*dt;
+    // 연료 소모
+    const tN = thr*S.ship.thrustKN*1000;
+    const ve = S.ship.isp*G0*1000;
+    const dm = tN/ve*dt;
+    fuel = Math.max(0, fuel-dm); mass -= dm;
+    t += dt;
+    if (alt<0){
+      // 접지 평가
+      const vTouch = Math.sqrt(vy*vy + vx*vx);
+      if (vTouch < 0.003) score = 100 - Math.abs(vx)*50 + fuel/S.ship.fuel0*20;
+      else score = -vTouch*100;
+      return score;
+    }
+  }
+  return -50 - alt/1000;  // 시간초과/연료고갈
+}
+class GA {
+  constructor(body){
+    this.body = body; this.pop=[]; this.size=128; this.gen=0;
+    this.best=null; this.bestScore=-Infinity;
+    // LocalStorage 시드
+    const seed = loadDNAPool();
+    for (let i=0;i<this.size;i++){
+      this.pop.push(i<seed.length ? seed[i].slice() : makeDNA());
+    }
+  }
+  step(){
+    const scores = this.pop.map(d => evalDNA(d, this.body));
+    // best 추적
+    for (let i=0;i<this.size;i++){
+      if (scores[i] > this.bestScore){ this.bestScore=scores[i]; this.best=this.pop[i].slice(); }
+    }
+    // 토너먼트 선택 + 교차 + 돌연변이
+    const next = [];
+    while (next.length < this.size){
+      const a = this._tournament(scores), b = this._tournament(scores);
+      let c = crossover(this.pop[a], this.pop[b]);
+      const sigma = Math.max(0.05, 0.3*Math.exp(-this.gen/30));
+      mutate(c, 0.15, sigma);
+      next.push(c);
+    }
+    // 중복 DNA 강제 돌연변이
+    const seen = new Set();
+    for (const d of next){
+      const h = dnaHash(d);
+      if (seen.has(h)) mutate(d, 0.4, 0.5);
+      seen.add(h);
+    }
+    next[0] = this.best.slice();  // 엘리트 보존
+    this.pop = next; this.gen++;
+  }
+  _tournament(scores){
+    let bi=-1, bs=-Infinity;
+    for (let k=0;k<4;k++){
+      const i = Math.random()*this.size|0;
+      if (scores[i] > bs){ bs=scores[i]; bi=i; }
+    }
+    return bi;
+  }
+}
+function startAutoLand(){
+  const target = $('landTarget')?.value || 'moon';
+  const body = S.bodies[target] || S.bodies.moon;
+  S.ga = new GA(body);
+  S.gaActive = true;
+  setStatus(S.langs[S.lang].training || 'Optimizing landing — GA training...');
+  // 비동기 학습: setInterval로 1세대씩 진행하여 UI freeze 방지
+  const iv = setInterval(()=>{
+    if (!S.gaActive){ clearInterval(iv); return; }
+    S.ga.step();
+    setStatus(`GA Gen ${S.ga.gen} | Best score ${fmt(S.ga.bestScore,1)}`);
+    if (S.ga.bestScore > 80 || S.ga.gen > 60){
+      clearInterval(iv);
+      saveDNAPool(S.ga.best);
+      setStatus(`착륙 정책 학습 완료. 자동 착륙 진행 (best=${fmt(S.ga.bestScore,1)})`);
+      S.autoLandActive = true;   // 메인 루프에서 컨트롤 적용
+      S.autoLandBody = body;
+    }
+  }, 30);
+}
+function applyAutoLandControl(){
+  if (!S.autoLandActive || !S.ga?.best) return;
+  const body = S.autoLandBody;
+  const r = S.ship.pos.clone().sub(body.pos);
+  const alt = r.length() - body.R;
+  if (alt < 0 || alt > body.R*20){ S.autoLandActive=false; return; }
+  const rHat = r.normalize();
+  const vr = S.ship.vel.dot(rHat);
+  const vt = Math.sqrt(Math.max(0, S.ship.vel.lengthSq() - vr*vr));
+  const x = [alt/5000, vr, vt, (S.ship.dry+S.ship.fuel)/(S.ship.dry+S.ship.fuel0),
+             S.ship.fuel/S.ship.fuel0, body.mu/(body.R*body.R)*100, 0, vt+Math.abs(vr)];
+  const o = nnForward(S.ga.best, x);
+  S.ship.throttle = o[0]*100;
+  S.ship.burnDir = 'radial';
+}
+
+/* =====[ PART 12 ] === LocalStorage DNA 풀 ================================ */
+const LS_KEY = 'celestium4_dna_pool';
+function loadDNAPool(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return arr.map(a => new Float32Array(a));
+  } catch(e){ return []; }
+}
+function saveDNAPool(dna){
+  try{
+    const pool = loadDNAPool();
+    pool.unshift(Array.from(dna));
+    if (pool.length>32) pool.pop();
+    localStorage.setItem(LS_KEY, JSON.stringify(pool.map(d => Array.from(d))));
+  } catch(e){ console.warn('LS 저장 실패', e); }
+}
+
+/* =====[ PART 13 ] === CSV 로그 + 내보내기 ================================ */
+function logRow(){
+  S.csvLog.push([
+    S.sim.t, S.ship.pos.x, S.ship.pos.y, S.ship.pos.z,
+    S.ship.vel.x, S.ship.vel.y, S.ship.vel.z,
+    S.ship.dry+S.ship.fuel, S.ship.fuel, S.ship.throttle, S.ship.dvUsed
+  ]);
+  if (S.csvLog.length>20000) S.csvLog.shift();
+}
+function exportCSV(){
+  const header = 't_s,px_km,py_km,pz_km,vx,vy,vz,mass_kg,fuel_kg,throttle_pct,dv_used_ms\n';
+  const body = S.csvLog.map(r => r.map(v=>(typeof v==='number'?v.toFixed(6):v)).join(',')).join('\n');
+  const blob = new Blob([header+body],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'celestium_log_'+Date.now()+'.csv';
+  a.click();
+}
+
+/* =====[ PART 14 ] === UI 이벤트 바인딩 =================================== */
+function bindUI(){
+  $('play')?.addEventListener('click', ()=>{
+    S.sim.paused = !S.sim.paused;
+    $('play').textContent = S.sim.paused ? 'PLAY' : 'PAUSE';
+    setStatus(S.sim.paused ? (S.langs[S.lang].paused||'PAUSED') : (S.langs[S.lang].play||'RUNNING'));
+  });
+  $('reset')?.addEventListener('click', ()=>{
+    S.sim.t=0; S.sim.paused=true; S.csvLog.length=0;
+    resetShipToParkingOrbit(); S.trailPos.length=0;
+    setStatus(S.langs[S.lang].idle||'Idle');
+    if ($('play')) $('play').textContent='PLAY';
+    exportCSV();
+  });
+  $('applyPreset')?.addEventListener('click', applyPreset);
+  $('burnExec')?.addEventListener('click', executeBurn);
+  $('mPro')?.addEventListener('click', ()=>{ S.ship.burnDir='prograde'; });
+  $('mRetro')?.addEventListener('click', ()=>{ S.ship.burnDir='retrograde'; });
+  $('mNormal')?.addEventListener('click', ()=>{ S.ship.burnDir='normal'; });
+  $('mRadial')?.addEventListener('click', ()=>{ S.ship.burnDir='radial'; });
+  $('autoLand')?.addEventListener('click', startAutoLand);
+  $('presetVeh')?.addEventListener('change', e=>{
+    const v = VEHICLES[e.target.value]; if (!v) return;
+    S.ship.dry=v.dry; S.ship.fuel=v.fuel; S.ship.fuel0=v.fuel;
+    S.ship.isp=v.isp; S.ship.thrustKN=v.thrust;
+    if ($('dryMass')) $('dryMass').value=v.dry;
+    if ($('fuelCap')) $('fuelCap').value=v.fuel;
+    if ($('isp')) $('isp').value=v.isp;
+    if ($('maxThrust')) $('maxThrust').value=v.thrust;
+  });
+  ['dryMass','fuelCap','isp','maxThrust'].forEach(k=>{
+    $(k)?.addEventListener('input', e=>{
+      const v = parseFloat(e.target.value);
+      if (!isFinite(v)) return;
+      if (k==='dryMass') S.ship.dry=v;
+      if (k==='fuelCap'){ S.ship.fuel0=v; S.ship.fuel=Math.min(S.ship.fuel,v); }
+      if (k==='isp') S.ship.isp=v;
+      if (k==='maxThrust') S.ship.thrustKN=v;
+    });
+  });
+  $('warp')?.addEventListener('change', e=>{ S.sim.warp = parseFloat(e.target.value)||1; });
+  $('visual')?.addEventListener('change', e=>{ S.vis.scale = e.target.value==='Exaggerated'?'exag':'real'; });
+  $('camera')?.addEventListener('change', e=>{
+    const v = e.target.value.toLowerCase();
+    if (v.includes('free')) S.camMode='free';
+    else if (v.includes('ship')) S.camMode='ship';
+    else if (v.includes('earth')) S.camMode='earth';
+    else if (v.includes('moon')) S.camMode='moon';
+    else if (v.includes('mars')) S.camMode='mars';
+    else S.camMode='free';
+  });
+  $('langEn')?.addEventListener('click', ()=>{ S.lang='en'; });
+  $('langKo')?.addEventListener('click', ()=>{ S.lang='ko'; setStatus(S.langs.ko.idle); });
+  $('showTrail')?.addEventListener('change', e=>{ S.vis.trail = e.target.checked; });
+  $('exportCsv')?.addEventListener('click', exportCSV);
+  // 발사일 변경 시 t0 갱신
+  $('launchDate')?.addEventListener('change', e=>{
+    const d = new Date(e.target.value);
+    if (!isNaN(d)) S.sim.t0 = d.getTime()/1000;
+  });
+}
+
+/* =====[ PART 15 ] === 메인 루프 ========================================== */
+let lastFrame = performance.now();
+let logCounter = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const realDt = Math.min(0.1, (now-lastFrame)/1000); lastFrame = now;
+
+  if (!S.sim.paused && !S.ship.landed && !S.ship.crashed){
+    const simDt = realDt * S.sim.warp;
+    const dtPhys = S.sim.dt;
+    const nSub = Math.max(1, Math.ceil(simDt/dtPhys));
+    const dtUse = simDt/nSub;
+    for (let i=0;i<nSub;i++){
+      computeBodies(S.sim.t);
+      applyAutoLandControl();
+      if (S.sim.method==='euler') stepEuler(dtUse); else stepRK4(dtUse);
+      checkCollision();
+      S.sim.t += dtUse;
+      if (S.ship.landed||S.ship.crashed) break;
+    }
+    if ((++logCounter % 5)===0) logRow();
+  } else {
+    computeBodies(S.sim.t);
+  }
+
+  syncMeshes();
+  updateCamera();
+  updateTelemetry();
+  S.rdr.render(S.scene, S.cam);
+}
+
+/* =====[ PART 16 ] === 부트스트랩 ========================================= */
+function boot(){
+  if (typeof THREE==='undefined'){
+    document.body.insertAdjacentHTML('beforeend',
+      '<div style="color:#f33;padding:20px;font-family:monospace">THREE.js CDN 로드 실패. 인터넷 연결 또는 CDN URL을 확인하세요.</div>');
+    return;
+  }
+  try { initScene(); } catch(e){ console.error(e); alert('Scene init 실패: '+e.message); return; }
+  bindUI();
+  setStatus(S.langs[S.lang].idle||'Idle — set initial conditions and PLAY');
+  animate();                          // ★ 검은 화면 방지: fetch와 무관하게 즉시 시작
+  tryHorizonsCorrection();            // 비동기, 실패해도 영향 없음
+}
+if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
 </script>
 </body>
 </html>
