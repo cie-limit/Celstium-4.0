@@ -1018,6 +1018,9 @@ function animate(){
 
 /* =====[ PART 16 ] === 부트스트랩 ========================================= */
 function boot(){
+  if (typeof OrbitControls === 'undefined' && typeof THREE !== 'undefined' && THREE.OrbitControls) {
+    window.OrbitControls = THREE.OrbitControls;
+  }
   if (typeof THREE==='undefined'){
     document.body.insertAdjacentHTML('beforeend',
       '<div style="color:#f33;padding:20px;font-family:monospace">THREE.js CDN 로드 실패. 인터넷 연결 또는 CDN URL을 확인하세요.</div>');
