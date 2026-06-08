@@ -322,9 +322,7 @@ h1.title { color: #00ffff; font-size: 16px; letter-spacing: 3px; }
 </div>
 
 <!-- THREE.JS via CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three-js-orbit-controls@1.0.2/index.min.js"></script>
 
 
 <script>
@@ -478,7 +476,7 @@ function initScene(){
   S.rdr.setPixelRatio(Math.min(2, devicePixelRatio));
   host.appendChild(S.rdr.domElement);
 
-  S.ctrl = new OrbitControls(S.cam, S.rdr.domElement);
+  S.ctrl = new THREE.OrbitControls(S.cam, S.rdr.domElement);
   S.ctrl.enableDamping = true; S.ctrl.dampingFactor = 0.08;
   S.ctrl.minDistance = 100; S.ctrl.maxDistance = 1e10;
 
