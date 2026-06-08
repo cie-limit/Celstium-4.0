@@ -476,7 +476,7 @@ function initScene(){
   S.rdr.setPixelRatio(Math.min(2, devicePixelRatio));
   host.appendChild(S.rdr.domElement);
 
-  S.ctrl = new THREE.OrbitControls(S.cam, S.rdr.domElement);
+  S.ctrl = new OrbitControls(S.cam, S.rdr.domElement);
   S.ctrl.enableDamping = true; S.ctrl.dampingFactor = 0.08;
   S.ctrl.minDistance = 100; S.ctrl.maxDistance = 1e10;
 
