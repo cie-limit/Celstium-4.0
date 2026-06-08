@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CELESTIUM 4.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Orbitron', sans-serif; }
+body { background: #000; color: #aaddff; overflow: hidden; height: 100vh; width: 100vw; }
+#canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+#canvas-container canvas { display: block; }
+
+.panel {
+  position: fixed;
+  background: rgba(5, 10, 20, 0.92);
+  border: 1px solid #004488;
+  padding: 10px 12px;
+  box-shadow: 0 0 15px rgba(0, 100, 255, 0.2);
+  border-radius: 6px;
+  z-index: 10;
+  font-size: 11px;
+  backdrop-filter: blur(2px);
+}
+#panel-top { top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; max-width: 95vw; }
+#panel-left { top: 90px; left: 10px; width: 290px; max-height: calc(100vh - 110px); overflow-y: auto; }
+#panel-right { top: 90px; right: 10px; width: 310px; max-height: calc(100vh - 110px); overflow-y: auto; }
+#panel-bottom { bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+
+.sc-header { color: #00ffff; font-size: 12px; border-bottom: 1px solid #004488; margin-bottom: 8px; padding-bottom: 5px; letter-spacing: 2px; text-transform: uppercase; }
+.version-tag { color: #ffcc00; font-size: 9px; margin-left: 4px; }
+
+button { border: 1px solid #00ffff; color: #00ffff; background: rgba(0, 50, 100, 0.5); padding: 5px 10px; font-family: 'Orbitron', sans-serif; font-size: 10px; cursor: pointer; letter-spacing: 1px; border-radius: 3px; transition: all 0.15s; }
+button:hover { background: #00ffff; color: #000; }
+button.active { background: #00ffff; color: #000; font-weight: 700; }
+button.danger { border-color: #ff5555; color: #ff5555; }
+button.danger:hover { background: #ff5555; color: #000; }
+button.warn { border-color: #ffaa00; color: #ffaa00; }
+button.warn:hover { background: #ffaa00; color: #000; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+input[type="range"] { width: 100%; accent-color: #00ffff; }
+input[type="number"], input[type="text"], select, input[type="date"] { background: rgba(0, 20, 40, 0.8); border: 1px solid #003366; color: #aaddff; padding: 3px 6px; font-family: 'Orbitron', sans-serif; font-size: 11px; width: 100%; border-radius: 3px; }
+input[type="checkbox"] { accent-color: #00ffff; }
+
+.row { display: flex; justify-content: space-between; margin: 3px 0; align-items: center; gap: 6px; }
+.row label { color: #88ccff; font-size: 10px; }
+.row .val { color: #ffcc00; font-size: 11px; font-weight: 700; }
+
+.field { margin: 6px 0; }
+.field > label { display: block; color: #88ccff; margin-bottom: 2px; font-size: 10px; }
+.field-inline { display: grid; grid-template-columns: 1fr 60px; gap: 6px; align-items: center; }
+
+.tabs { display: flex; gap: 3px; margin-bottom: 6px; }
+.tabs button { flex: 1; padding: 4px; font-size: 9px; }
+
+.lang-toggle { display: flex; gap: 2px; }
+.lang-toggle button { padding: 3px 8px; font-size: 10px; }
+
+.status-good { color: #33ff33; }
+.status-warn { color: #ffaa00; }
+.status-bad { color: #ff5555; }
+.status-info { color: #88ccff; }
+
+.metric-box { background: rgba(0, 50, 100, 0.25); border: 1px solid #003366; padding: 6px 8px; border-radius: 3px; margin: 4px 0; }
+
+h1.title { color: #00ffff; font-size: 16px; letter-spacing: 3px; }
+
+.bigbtn { padding: 10px 16px; font-size: 12px; font-weight: 700; }
+
+#help-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; align-items: center; justify-content: center; }
+#help-overlay.show { display: flex; }
+#help-content { max-width: 700px; max-height: 80vh; overflow-y: auto; background: rgba(5,10,20,0.98); border: 1px solid #00ffff; padding: 20px; border-radius: 6px; }
+#help-content h2 { color: #00ffff; margin-bottom: 12px; letter-spacing: 2px; }
+#help-content h3 { color: #ffcc00; margin: 12px 0 6px; font-size: 13px; }
+#help-content p, #help-content li { font-size: 12px; line-height: 1.5; color: #aaddff; margin-bottom: 4px; }
+#help-content ul { margin-left: 16px; }
+#help-content code { background: rgba(0,50,100,0.5); padding: 1px 5px; border-radius: 2px; color: #ffcc00; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,20,40,0.5); }
+::-webkit-scrollbar-thumb { background: #004488; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #006699; }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<!-- TOP PANEL -->
+<div id="panel-top" class="panel">
+  <h1 class="title">CELESTIUM<span class="version-tag">4.0</span></h1>
+  <div class="lang-toggle">
+    <button id="lang-en" class="active">EN</button>
+    <button id="lang-ko">KO</button>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button id="btn-play" data-i18n="play">PLAY</button>
+    <button id="btn-reset" data-i18n="reset">RESET</button>
+    <button id="btn-help" data-i18n="help">?</button>
+  </div>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <label data-i18n="warp" style="font-size:10px;color:#88ccff;">WARP</label>
+    <select id="time-warp" style="width:130px;">
+      <option value="1">1× (real-time)</option>
+      <option value="60">60× (1 min/s)</option>
+      <option value="3600">3,600× (1 h/s)</option>
+      <option value="86400" selected>86,400× (1 day/s)</option>
+      <option value="864000">864,000× (10 d/s)</option>
+      <option value="2592000">2,592,000× (30 d/s)</option>
+    </select>
+  </div>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <label style="font-size:10px;color:#88ccff;" data-i18n="visual">VISUAL</label>
+    <select id="scale-mode" style="width:130px;">
+      <option value="exag" selected data-i18n="scale_exag">Exaggerated</option>
+      <option value="real" data-i18n="scale_real">Realistic 1:1</option>
+    </select>
+  </div>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <label style="font-size:10px;color:#88ccff;" data-i18n="camera">CAMERA</label>
+    <select id="camera-mode" style="width:130px;">
+      <option value="free" selected data-i18n="cam_free">Free Orbit</option>
+      <option value="ship" data-i18n="cam_ship">Ship Follow</option>
+      <option value="earth" data-i18n="cam_earth">Earth Centered</option>
+      <option value="moon" data-i18n="cam_moon">Moon Centered</option>
+      <option value="sun" data-i18n="cam_sun">Sun Centered</option>
+    </select>
+  </div>
+</div>
+
+<!-- LEFT PANEL: TELEMETRY + MISSION -->
+<div id="panel-left" class="panel">
+  <div class="sc-header" data-i18n="telemetry">TELEMETRY</div>
+  <div class="metric-box">
+    <div class="row"><label data-i18n="sim_time">SIM TIME</label><span class="val" id="tm-time">0.000 d</span></div>
+    <div class="row"><label data-i18n="sim_date">DATE</label><span class="val" id="tm-date">--</span></div>
+    <div class="row"><label data-i18n="ship_mass">SHIP MASS</label><span class="val" id="tm-mass">-- kg</span></div>
+    <div class="row"><label data-i18n="fuel">FUEL</label><span class="val" id="tm-fuel">-- kg</span></div>
+    <div class="row"><label data-i18n="speed">SPEED</label><span class="val" id="tm-speed">-- km/s</span></div>
+    <div class="row"><label data-i18n="alt_earth">ALT (Earth)</label><span class="val" id="tm-alt-e">-- km</span></div>
+    <div class="row"><label data-i18n="alt_moon">ALT (Moon)</label><span class="val" id="tm-alt-m">-- km</span></div>
+    <div class="row"><label data-i18n="alt_mars">DIST (Mars)</label><span class="val" id="tm-alt-mars">-- km</span></div>
+    <div class="row"><label data-i18n="dv_used">ΔV USED</label><span class="val" id="tm-dv">0 m/s</span></div>
+  </div>
+
+  <div class="sc-header" data-i18n="status">STATUS</div>
+  <div class="metric-box" id="status-box">
+    <div id="status-text" class="status-info" data-i18n="status_idle">Idle — set initial conditions and PLAY</div>
+  </div>
+
+  <div class="sc-header" data-i18n="mission">MISSION PRESET</div>
+  <div class="field">
+    <select id="mission-preset">
+      <option value="leo" data-i18n="m_leo">LEO Parking Orbit (200 km)</option>
+      <option value="hohmann_moon" data-i18n="m_hm">Hohmann Transfer → Moon</option>
+      <option value="fast_moon" data-i18n="m_fm">Fast Transfer → Moon (3 days)</option>
+      <option value="free_return" data-i18n="m_fr">Free Return Trajectory</option>
+      <option value="hohmann_mars" data-i18n="m_hmars">Hohmann Transfer → Mars</option>
+      <option value="venus_swingby" data-i18n="m_vsb">Venus Swing-by → Mars</option>
+      <option value="custom" data-i18n="m_custom">Custom (manual control)</option>
+    </select>
+  </div>
+  <button id="btn-apply-preset" style="width:100%;" data-i18n="apply">APPLY PRESET</button>
+
+  <div class="sc-header" data-i18n="modes">MANEUVER</div>
+  <div class="tabs">
+    <button id="tab-prograde" class="active" data-i18n="prograde">Prograde</button>
+    <button id="tab-retro" data-i18n="retrograde">Retro</button>
+    <button id="tab-normal" data-i18n="normal">Normal</button>
+    <button id="tab-radial" data-i18n="radial">Radial</button>
+  </div>
+  <div class="field-inline">
+    <label data-i18n="burn_dv">ΔV (m/s)</label>
+    <input type="number" id="burn-dv" value="100" min="-5000" max="5000" step="10">
+  </div>
+  <button id="btn-burn" class="warn" style="width:100%;margin-top:4px;" data-i18n="burn">EXECUTE BURN</button>
+
+  <div class="sc-header" data-i18n="landing">LANDING</div>
+  <div class="row"><label data-i18n="target">Target</label>
+    <select id="landing-target" style="width:140px;">
+      <option value="moon">Moon</option>
+      <option value="mars">Mars</option>
+      <option value="earth">Earth</option>
+    </select>
+  </div>
+  <button id="btn-landing-mode" style="width:100%;margin-top:4px;" data-i18n="enable_landing">ENABLE AUTO-LAND</button>
+  <button id="btn-manual-retro" class="danger" style="width:100%;margin-top:4px;" data-i18n="manual_retro">HOLD: MANUAL RETRO</button>
+</div>
+
+<!-- RIGHT PANEL: SHIP PARAMETERS -->
+<div id="panel-right" class="panel">
+  <div class="sc-header" data-i18n="vehicle">VEHICLE PARAMETERS</div>
+  <div class="field">
+    <label data-i18n="vehicle_preset">Preset</label>
+    <select id="vehicle-preset">
+      <option value="apollo" data-i18n="v_apollo">Apollo S-IVB</option>
+      <option value="starship" data-i18n="v_ss">SpaceX Starship</option>
+      <option value="sls" data-i18n="v_sls">SLS Block 1B</option>
+      <option value="custom" data-i18n="v_custom">Custom</option>
+    </select>
+  </div>
+  <div class="field">
+    <label><span data-i18n="dry_mass">Dry Mass</span>: <span class="val" id="lab-dry">13500 kg</span></label>
+    <input type="range" id="sl-dry" min="1000" max="200000" step="500" value="13500">
+  </div>
+  <div class="field">
+    <label><span data-i18n="fuel_cap">Fuel Capacity</span>: <span class="val" id="lab-fuel">110000 kg</span></label>
+    <input type="range" id="sl-fuel" min="1000" max="1500000" step="1000" value="110000">
+  </div>
+  <div class="field">
+    <label><span data-i18n="isp">Isp (s)</span>: <span class="val" id="lab-isp">421 s</span></label>
+    <input type="range" id="sl-isp" min="200" max="500" step="1" value="421">
+  </div>
+  <div class="field">
+    <label><span data-i18n="thrust">Max Thrust</span>: <span class="val" id="lab-thrust">1000 kN</span></label>
+    <input type="range" id="sl-thrust" min="50" max="20000" step="50" value="1000">
+  </div>
+
+  <div class="sc-header" data-i18n="initcond">INITIAL CONDITIONS</div>
+  <div class="field">
+    <label data-i18n="parkorbit">Parking Orbit Altitude (km)</label>
+    <input type="number" id="in-parkalt" value="200" min="100" max="2000" step="10">
+  </div>
+  <div class="field">
+    <label data-i18n="launch_date">Launch Date (UTC)</label>
+    <input type="date" id="in-date">
+  </div>
+  <div class="field">
+    <label data-i18n="dt">Integration Step Δt (s)</label>
+    <select id="in-dt">
+      <option value="1">1 s (high accuracy)</option>
+      <option value="10" selected>10 s (recommended)</option>
+      <option value="60">60 s</option>
+      <option value="300">300 s (fast)</option>
+    </select>
+  </div>
+  <div class="field">
+    <label data-i18n="integrator">Integrator</label>
+    <select id="in-integrator">
+      <option value="rk4" selected>RK4 (Runge-Kutta 4)</option>
+      <option value="euler">Euler-Cromer</option>
+    </select>
+  </div>
+
+  <div class="sc-header" data-i18n="trail">TRAJECTORY TRAIL</div>
+  <div class="row"><label data-i18n="trail_show">Show Trail</label>
+    <input type="checkbox" id="cb-trail" checked>
+  </div>
+  <div class="row"><label data-i18n="trail_max">Max Points</label>
+    <select id="trail-max" style="width:100px;">
+      <option value="2000">2,000</option>
+      <option value="5000" selected>5,000</option>
+      <option value="10000">10,000</option>
+      <option value="20000">20,000</option>
+    </select>
+  </div>
+  <button id="btn-clear-trail" style="width:100%;margin-top:4px;" data-i18n="clear_trail">CLEAR TRAIL</button>
+
+  <div class="sc-header" data-i18n="online">ONLINE EPHEMERIS</div>
+  <div class="row" style="font-size:10px;color:#88ccff;">
+    <span data-i18n="online_desc">Offline JS Kepler approx (default)</span>
+  </div>
+  <button id="btn-sync-horizons" style="width:100%;margin-top:4px;" data-i18n="sync">SYNC WITH HORIZONS (via proxy)</button>
+  <div id="sync-status" style="font-size:10px; margin-top:4px; color:#88ccff;"></div>
+</div>
+
+<!-- HELP OVERLAY -->
+<div id="help-overlay">
+  <div id="help-content">
+    <h2 data-i18n="help_title">CELESTIUM 4.0 — QUICK GUIDE</h2>
+    <div id="help-body-en">
+      <h3>What this is</h3>
+      <p>A physics-based solar-system simulator. The ship moves under real Newtonian gravity from Sun, planets and Moon, integrated with RK4. No hard-coded trajectories — every path is the actual result of the equations of motion.</p>
+      <h3>Quick start</h3>
+      <ul>
+        <li>Pick a <code>MISSION PRESET</code> on the left, hit <code>APPLY PRESET</code>, then <code>PLAY</code>.</li>
+        <li>Use <code>WARP</code> to fast-forward time. 86,400× = 1 day per second.</li>
+        <li>Open <code>CAMERA</code> to follow the ship, Earth, Moon, Mars or stay free.</li>
+        <li>Use the <code>MANEUVER</code> section to execute prograde/retrograde/normal/radial burns.</li>
+        <li><code>ENABLE AUTO-LAND</code> when within 50,000 km of the target body — a P-controller will modulate thrust to hover-slam land.</li>
+      </ul>
+      <h3>Physics</h3>
+      <ul>
+        <li>N-body Newtonian gravity from Sun + Mercury + Venus + Earth + Moon + Mars.</li>
+        <li>RK4 or Euler-Cromer integration (selectable, Δt configurable).</li>
+        <li>Tsiolkovsky-consistent mass depletion: ṁ = T/(Isp·g₀).</li>
+        <li>Spacecraft is a test mass — it does NOT affect the planets (restricted N-body).</li>
+      </ul>
+      <h3>Online ephemeris</h3>
+      <p>By default planet positions come from offline Kepler approximations (accurate to ~1 part in 10,000 for inner planets in this decade). Press <code>SYNC WITH HORIZONS</code> to fetch real-time JPL data through a public CORS proxy — only the initial epoch is corrected; subsequent integration is local.</p>
+      <h3>Keys</h3>
+      <ul><li>Mouse drag / wheel: orbit & zoom camera (Free mode)</li><li>Space: play/pause</li><li>R: reset</li></ul>
+    </div>
+    <div id="help-body-ko" style="display:none;">
+      <h3>이 프로그램은</h3>
+      <p>물리 기반 태양계 시뮬레이터입니다. 우주선은 태양·행성·달의 실제 뉴턴 만유인력 아래서 RK4로 적분되어 움직입니다. 미리 그려진 궤도는 없고, 모든 경로는 운동방정식의 진짜 결과입니다.</p>
+      <h3>빠른 시작</h3>
+      <ul>
+        <li>왼쪽 <code>MISSION PRESET</code>에서 시나리오를 고르고 <code>APPLY PRESET</code> → <code>PLAY</code></li>
+        <li><code>WARP</code>으로 시간 가속. 86,400× = 1초에 1일</li>
+        <li><code>CAMERA</code>로 우주선·지구·달·화성 추적 또는 자유시점</li>
+        <li><code>MANEUVER</code>에서 진행방향/역방향/법선/지름 방향 분사</li>
+        <li>목표 천체로부터 50,000 km 이내일 때 <code>ENABLE AUTO-LAND</code>를 누르면 P 제어기가 호버슬램 착륙 수행</li>
+      </ul>
+      <h3>물리 엔진</h3>
+      <ul>
+        <li>태양 + 수성 + 금성 + 지구 + 달 + 화성의 N체 뉴턴 중력</li>
+        <li>RK4 또는 Euler-Cromer 적분 (Δt 선택 가능)</li>
+        <li>치올콥스키식 질량 변화: ṁ = T/(Isp·g₀)</li>
+        <li>우주선은 시험질량 — 행성에 영향을 주지 않음(제한 N체)</li>
+      </ul>
+      <h3>천체력</h3>
+      <p>기본은 오프라인 Kepler 근사(이번 10년간 ~0.01% 오차). <code>SYNC WITH HORIZONS</code>로 JPL 실시간 데이터를 CORS 프록시 통해 가져와 초기 시점을 보정합니다.</p>
+      <h3>단축키</h3>
+      <ul><li>마우스 드래그/휠: 자유 카메라 회전·줌</li><li>Space: 재생/일시정지</li><li>R: 리셋</li></ul>
+    </div>
+    <div style="text-align:right; margin-top:14px;">
+      <button id="btn-close-help">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<!-- THREE.JS via CDN -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// ============================================================================
+// CELESTIUM 4.0 — Single-file physics-based solar system simulator
+// ============================================================================
+
+// ---------- I18N ----------
+const I18N = {
+  en: {
+    play:'PLAY', pause:'PAUSE', reset:'RESET', help:'?',
+    warp:'WARP', visual:'VISUAL', camera:'CAMERA',
+    scale_exag:'Exaggerated', scale_real:'Realistic 1:1',
+    cam_free:'Free Orbit', cam_ship:'Ship Follow', cam_earth:'Earth Centered',
+    cam_moon:'Moon Centered', cam_sun:'Sun Centered',
+    telemetry:'TELEMETRY', sim_time:'SIM TIME', sim_date:'DATE',
+    ship_mass:'SHIP MASS', fuel:'FUEL', speed:'SPEED',
+    alt_earth:'ALT (Earth)', alt_moon:'ALT (Moon)', alt_mars:'DIST (Mars)',
+    dv_used:'ΔV USED', status:'STATUS', status_idle:'Idle — set initial conditions and PLAY',
+    mission:'MISSION PRESET', m_leo:'LEO Parking Orbit (200 km)',
+    m_hm:'Hohmann Transfer → Moon', m_fm:'Fast Transfer → Moon (3 days)',
+    m_fr:'Free Return Trajectory', m_hmars:'Hohmann Transfer → Mars',
+    m_vsb:'Venus Swing-by → Mars', m_custom:'Custom (manual control)',
+    apply:'APPLY PRESET', modes:'MANEUVER',
+    prograde:'Prograde', retrograde:'Retro', normal:'Normal', radial:'Radial',
+    burn_dv:'ΔV (m/s)', burn:'EXECUTE BURN',
+    landing:'LANDING', target:'Target',
+    enable_landing:'ENABLE AUTO-LAND', manual_retro:'HOLD: MANUAL RETRO',
+    vehicle:'VEHICLE PARAMETERS', vehicle_preset:'Preset',
+    v_apollo:'Apollo S-IVB', v_ss:'SpaceX Starship', v_sls:'SLS Block 1B', v_custom:'Custom',
+    dry_mass:'Dry Mass', fuel_cap:'Fuel Capacity', isp:'Isp (s)', thrust:'Max Thrust',
+    initcond:'INITIAL CONDITIONS', parkorbit:'Parking Orbit Altitude (km)',
+    launch_date:'Launch Date (UTC)', dt:'Integration Step Δt (s)', integrator:'Integrator',
+    trail:'TRAJECTORY TRAIL', trail_show:'Show Trail', trail_max:'Max Points',
+    clear_trail:'CLEAR TRAIL',
+    online:'ONLINE EPHEMERIS', online_desc:'Offline JS Kepler approx (default)',
+    sync:'SYNC WITH HORIZONS (via proxy)',
+    help_title:'CELESTIUM 4.0 — QUICK GUIDE'
+  },
+  ko: {
+    play:'재생', pause:'일시정지', reset:'리셋', help:'?',
+    warp:'배속', visual:'시각화', camera:'카메라',
+    scale_exag:'과장', scale_real:'실축 1:1',
+    cam_free:'자유 시점', cam_ship:'우주선 추적', cam_earth:'지구 중심',
+    cam_moon:'달 중심', cam_sun:'태양 중심',
+    telemetry:'텔레메트리', sim_time:'경과 시간', sim_date:'날짜',
+    ship_mass:'기체 질량', fuel:'연료', speed:'속력',
+    alt_earth:'지구 고도', alt_moon:'달 고도', alt_mars:'화성까지',
+    dv_used:'누적 ΔV', status:'상태', status_idle:'대기 — 조건 설정 후 재생을 누르세요',
+    mission:'미션 프리셋', m_leo:'저궤도 주차 (200 km)',
+    m_hm:'호만 전이 → 달', m_fm:'고속 전이 → 달 (3일)',
+    m_fr:'자유 귀환 궤도', m_hmars:'호만 전이 → 화성',
+    m_vsb:'금성 스윙바이 → 화성', m_custom:'사용자 설정',
+    apply:'프리셋 적용', modes:'기동',
+    prograde:'진행방향', retrograde:'역방향', normal:'법선', radial:'지름',
+    burn_dv:'ΔV (m/s)', burn:'분사 실행',
+    landing:'착륙', target:'대상',
+    enable_landing:'자동 착륙 활성화', manual_retro:'수동 역추진 (누르고 있기)',
+    vehicle:'기체 파라미터', vehicle_preset:'프리셋',
+    v_apollo:'아폴로 S-IVB', v_ss:'스타십', v_sls:'SLS 1B', v_custom:'사용자 정의',
+    dry_mass:'건조 질량', fuel_cap:'연료 용량', isp:'비추력 (s)', thrust:'최대 추력',
+    initcond:'초기 조건', parkorbit:'주차궤도 고도 (km)',
+    launch_date:'발사 날짜 (UTC)', dt:'적분 간격 Δt (s)', integrator:'적분기',
+    trail:'궤적 표시', trail_show:'궤적 보이기', trail_max:'최대 점 수',
+    clear_trail:'궤적 초기화',
+    online:'온라인 천체력', online_desc:'오프라인 케플러 근사 (기본)',
+    sync:'JPL Horizons 동기화 (프록시 경유)',
+    help_title:'CELESTIUM 4.0 — 빠른 사용법'
+  }
+};
+let LANG = 'en';
+function applyLang(l) {
+  LANG = l;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (I18N[l][k] !== undefined) el.textContent = I18N[l][k];
+  });
+  document.getElementById('lang-en').classList.toggle('active', l==='en');
+  document.getElementById('lang-ko').classList.toggle('active', l==='ko');
+  document.getElementById('help-body-en').style.display = (l==='en') ? 'block' : 'none';
+  document.getElementById('help-body-ko').style.display = (l==='ko') ? 'block' : 'none';
+}
+
+// ---------- PHYSICS CONSTANTS ----------
+const G_KM = 6.67430e-20;   // km^3 kg^-1 s^-2
+const G0 = 9.80665;          // m/s^2 (for Isp)
+const AU = 149597870.7;      // km
+const J2000 = 2451545.0;
+const SECONDS_PER_DAY = 86400;
+
+// Body data — heliocentric mean orbital elements (J2000)
+// a [AU], e, i [deg], L [deg], wbar [deg], Omega [deg], + rates per century
+const BODY_ELEMENTS = {
+  mercury: {a:0.38709927, e:0.20563593, i:7.00497902, L:252.25032350, wbar:77.45779628, Omega:48.33076593,
+            da:0.00000037, de:0.00001906, di:-0.00594749, dL:149472.67411175, dwbar:0.16047689, dOmega:-0.12534081},
+  venus:   {a:0.72333566, e:0.00677672, i:3.39467605, L:181.97909950, wbar:131.60246718, Omega:76.67984255,
+            da:0.00000390, de:-0.00004107, di:-0.00078890, dL:58517.81538729, dwbar:0.00268329, dOmega:-0.27769418},
+  earth:   {a:1.00000261, e:0.01671123, i:-0.00001531, L:100.46457166, wbar:102.93768193, Omega:0.0,
+            da:0.00000562, de:-0.00004392, di:-0.01294668, dL:35999.37244981, dwbar:0.32327364, dOmega:0.0},
+  mars:    {a:1.52371034, e:0.09339410, i:1.84969142, L:-4.55343205, wbar:-23.94362959, Omega:49.55953891,
+            da:0.00001847, de:0.00007882, di:-0.00813131, dL:19140.30268499, dwbar:0.44441088, dOmega:-0.29257343}
+};
+
+// Physical data (μ = G·M in km^3/s^2, radius in km, color, display scale)
+const BODIES = {
+  sun:     {mu: 1.32712440018e11, R: 695700,  color: 0xffcc33, displayScale: 8,   parent: null,    isPlanet: false},
+  mercury: {mu: 22032.0,          R: 2439.7,  color: 0xaaaaaa, displayScale: 600, parent: 'sun',   isPlanet: true},
+  venus:   {mu: 324859.0,         R: 6051.8,  color: 0xddaa66, displayScale: 400, parent: 'sun',   isPlanet: true},
+  earth:   {mu: 398600.4418,      R: 6371.0,  color: 0x3388ff, displayScale: 400, parent: 'sun',   isPlanet: true},
+  moon:    {mu: 4902.8,           R: 1737.4,  color: 0xaaaaaa, displayScale: 400, parent: 'earth', isPlanet: false},
+  mars:    {mu: 42828.0,          R: 3389.5,  color: 0xcc5533, displayScale: 500, parent: 'sun',   isPlanet: true}
+};
+const BODY_LIST = ['sun','mercury','venus','earth','moon','mars'];
+
+// ---------- EPHEMERIS ----------
+function dateToJD(d) {
+  let Y = d.getUTCFullYear(), M = d.getUTCMonth()+1, D = d.getUTCDate();
+  const h = d.getUTCHours()/24 + d.getUTCMinutes()/1440 + d.getUTCSeconds()/86400;
+  if (M <= 2) { Y -= 1; M += 12; }
+  const A = Math.floor(Y/100), B = 2 - A + Math.floor(A/4);
+  return Math.floor(365.25*(Y+4716)) + Math.floor(30.6001*(M+1)) + D + B - 1524.5 + h;
+}
+
+function planetHeliocentric(name, jd) {
+  const e = BODY_ELEMENTS[name];
+  const T = (jd - J2000) / 36525.0;
+  const a   = (e.a    + e.da*T);
+  const ecc = (e.e    + e.de*T);
+  const inc = (e.i    + e.di*T) * Math.PI/180;
+  const L   = ((e.L   + e.dL*T) % 360) * Math.PI/180;
+  const wb  = ((e.wbar+ e.dwbar*T) % 360) * Math.PI/180;
+  const Om  = ((e.Omega+e.dOmega*T)% 360) * Math.PI/180;
+  const om  = wb - Om;
+  let M = L - wb;
+  M = ((M + Math.PI) % (2*Math.PI)) - Math.PI;
+  if (M < -Math.PI) M += 2*Math.PI;
+  let E = M;
+  for (let k=0; k<25; k++) {
+    const f = E - ecc*Math.sin(E) - M;
+    const fp = 1 - ecc*Math.cos(E);
+    E -= f/fp;
+    if (Math.abs(f) < 1e-12) break;
+  }
+  const xp = a*(Math.cos(E) - ecc);
+  const yp = a*Math.sqrt(1-ecc*ecc)*Math.sin(E);
+  const cw=Math.cos(om), sw=Math.sin(om), cO=Math.cos(Om), sO=Math.sin(Om), ci=Math.cos(inc), si=Math.sin(inc);
+  const x = (cw*cO - sw*sO*ci)*xp + (-sw*cO - cw*sO*ci)*yp;
+  const y = (cw*sO + sw*cO*ci)*xp + (-sw*sO + cw*cO*ci)*yp;
+  const z = (sw*si)*xp + (cw*si)*yp;
+  // also velocity: differentiate orbit
+  const n = Math.sqrt(BODIES.sun.mu / Math.pow(a*AU, 3)); // mean motion rad/s
+  const Edot = n / (1 - ecc*Math.cos(E));
+  const xpdot = -a*Math.sin(E)*Edot;
+  const ypdot = a*Math.sqrt(1-ecc*ecc)*Math.cos(E)*Edot;
+  const vx = (cw*cO - sw*sO*ci)*xpdot + (-sw*cO - cw*sO*ci)*ypdot;
+  const vy = (cw*sO + sw*cO*ci)*xpdot + (-sw*sO + cw*cO*ci)*ypdot;
+  const vz = (sw*si)*xpdot + (cw*si)*ypdot;
+  return {pos: [x*AU, y*AU, z*AU], vel: [vx*AU, vy*AU, vz*AU]};
+}
+
+function moonGeocentric(jd) {
+  // Simplified ELP — accurate to ~1000 km
+  const T = (jd - J2000) / 36525.0;
+  const Lp = (218.3164477 + 481267.88123421*T) % 360;
+  const D  = (297.8501921 + 445267.1114034*T) % 360;
+  const M  = (357.5291092 + 35999.0502909*T) % 360;
+  const Mp = (134.9633964 + 477198.8675055*T) % 360;
+  const F  = (93.2720950  + 483202.0175233*T) % 360;
+  const r = Math.PI/180;
+  const lon = Lp + 6.289*Math.sin(Mp*r) - 1.274*Math.sin((Mp-2*D)*r)
+              + 0.658*Math.sin(2*D*r) - 0.186*Math.sin(M*r)
+              - 0.059*Math.sin((2*Mp-2*D)*r);
+  const lat = 5.128*Math.sin(F*r) + 0.281*Math.sin((Mp+F)*r)
+              + 0.278*Math.sin((Mp-F)*r) + 0.173*Math.sin((2*D-F)*r);
+  const dist = 385000.56 - 20905.355*Math.cos(Mp*r) - 3699.111*Math.cos((2*D-Mp)*r)
+               - 2955.968*Math.cos(2*D*r) - 569.925*Math.cos(2*Mp*r);
+  const lonR = lon*r, latR = lat*r;
+  const x = dist*Math.cos(latR)*Math.cos(lonR);
+  const y = dist*Math.cos(latR)*Math.sin(lonR);
+  const z = dist*Math.sin(latR);
+  // Velocity by numerical differentiation
+  const dt = 60; // seconds
+  const jd2 = jd + dt/SECONDS_PER_DAY;
+  const T2 = (jd2 - J2000)/36525.0;
+  const Lp2 = (218.3164477 + 481267.88123421*T2)%360;
+  const D2  = (297.8501921 + 445267.1114034*T2)%360;
+  const Mp2 = (134.9633964 + 477198.8675055*T2)%360;
+  const M2 = (357.5291092 + 35999.0502909*T2)%360;
+  const F2  = (93.2720950  + 483202.0175233*T2)%360;
+  const lon2 = Lp2 + 6.289*Math.sin(Mp2*r) - 1.274*Math.sin((Mp2-2*D2)*r)
+               + 0.658*Math.sin(2*D2*r) - 0.186*Math.sin(M2*r)
+               - 0.059*Math.sin((2*Mp2-2*D2)*r);
+  const lat2 = 5.128*Math.sin(F2*r);
+  const dist2 = 385000.56 - 20905.355*Math.cos(Mp2*r) - 3699.111*Math.cos((2*D2-Mp2)*r)
+                - 2955.968*Math.cos(2*D2*r) - 569.925*Math.cos(2*Mp2*r);
+  const lon2R = lon2*r, lat2R = lat2*r;
+  const x2 = dist2*Math.cos(lat2R)*Math.cos(lon2R);
+  const y2 = dist2*Math.cos(lat2R)*Math.sin(lon2R);
+  const z2 = dist2*Math.sin(lat2R);
+  return {pos:[x,y,z], vel:[(x2-x)/dt,(y2-y)/dt,(z2-z)/dt]};
+}
+
+// Compute body positions at sim time (seconds since simStartJD)
+function bodyPositions(simT) {
+  const jd = STATE.startJD + simT/SECONDS_PER_DAY;
+  const out = {};
+  out.sun = {pos:[0,0,0], vel:[0,0,0]};
+  for (const p of ['mercury','venus','earth','mars']) {
+    out[p] = planetHeliocentric(p, jd);
+  }
+  const m = moonGeocentric(jd);
+  out.moon = {
+    pos: [out.earth.pos[0]+m.pos[0], out.earth.pos[1]+m.pos[1], out.earth.pos[2]+m.pos[2]],
+    vel: [out.earth.vel[0]+m.vel[0], out.earth.vel[1]+m.vel[1], out.earth.vel[2]+m.vel[2]]
+  };
+  return out;
+}
+
+// ---------- STATE ----------
+const STATE = {
+  ship: {
+    pos: [0,0,0],     // km, heliocentric
+    vel: [0,0,0],     // km/s, heliocentric
+    dryMass: 13500,   // kg
+    fuel: 110000,     // kg current
+    fuelCap: 110000,
+    isp: 421,         // s
+    thrustMax: 1000000, // N (1000 kN)
+    dvUsed: 0
+  },
+  simT: 0,            // seconds since start
+  startJD: 2461193.5, // launch JD
+  paused: true,
+  warp: 86400,
+  dt: 10,
+  integrator: 'rk4',
+  scaleMode: 'exag',
+  cameraMode: 'free',
+  trail: [],
+  trailMax: 5000,
+  trailLastPos: null,
+  showTrail: true,
+  landingMode: false,
+  landingTarget: 'moon',
+  manualRetro: false,
+  burnDir: 'prograde',
+  preset: 'leo',
+  vehiclePreset: 'apollo'
+};
+
+// ---------- INTEGRATOR ----------
+function shipAcceleration(pos, simT, thrustVec) {
+  // pos: [x,y,z] km in heliocentric inertial
+  // returns acceleration in km/s^2
+  const bodies = bodyPositions(simT);
+  let ax=0, ay=0, az=0;
+  for (const name of BODY_LIST) {
+    const bp = bodies[name].pos;
+    const dx = bp[0]-pos[0], dy = bp[1]-pos[1], dz = bp[2]-pos[2];
+    let r2 = dx*dx + dy*dy + dz*dz;
+    const Rmin = BODIES[name].R;
+    if (r2 < Rmin*Rmin) r2 = Rmin*Rmin; // surface clamp via dist squared
+    const r = Math.sqrt(r2);
+    const factor = BODIES[name].mu / (r2*r);
+    ax += factor*dx; ay += factor*dy; az += factor*dz;
+  }
+  if (thrustVec) { ax += thrustVec[0]; ay += thrustVec[1]; az += thrustVec[2]; }
+  return [ax, ay, az];
+}
+
+function stepEulerCromer(dt, thrustVec) {
+  const a = shipAcceleration(STATE.ship.pos, STATE.simT, thrustVec);
+  STATE.ship.vel[0] += a[0]*dt;
+  STATE.ship.vel[1] += a[1]*dt;
+  STATE.ship.vel[2] += a[2]*dt;
+  STATE.ship.pos[0] += STATE.ship.vel[0]*dt;
+  STATE.ship.pos[1] += STATE.ship.vel[1]*dt;
+  STATE.ship.pos[2] += STATE.ship.vel[2]*dt;
+}
+
+function stepRK4(dt, thrustVec) {
+  const p = STATE.ship.pos, v = STATE.ship.vel, t = STATE.simT;
+  const k1v = shipAcceleration(p, t, thrustVec);
+  const k1r = v;
+  const p2 = [p[0]+0.5*dt*k1r[0], p[1]+0.5*dt*k1r[1], p[2]+0.5*dt*k1r[2]];
+  const v2 = [v[0]+0.5*dt*k1v[0], v[1]+0.5*dt*k1v[1], v[2]+0.5*dt*k1v[2]];
+  const k2v = shipAcceleration(p2, t+0.5*dt, thrustVec);
+  const k2r = v2;
+  const p3 = [p[0]+0.5*dt*k2r[0], p[1]+0.5*dt*k2r[1], p[2]+0.5*dt*k2r[2]];
+  const v3 = [v[0]+0.5*dt*k2v[0], v[1]+0.5*dt*k2v[1], v[2]+0.5*dt*k2v[2]];
+  const k3v = shipAcceleration(p3, t+0.5*dt, thrustVec);
+  const k3r = v3;
+  const p4 = [p[0]+dt*k3r[0], p[1]+dt*k3r[1], p[2]+dt*k3r[2]];
+  const v4 = [v[0]+dt*k3v[0], v[1]+dt*k3v[1], v[2]+dt*k3v[2]];
+  const k4v = shipAcceleration(p4, t+dt, thrustVec);
+  const k4r = v4;
+  for (let i=0;i<3;i++) {
+    STATE.ship.pos[i] += dt/6*(k1r[i]+2*k2r[i]+2*k3r[i]+k4r[i]);
+    STATE.ship.vel[i] += dt/6*(k1v[i]+2*k2v[i]+2*k3v[i]+k4v[i]);
+  }
+}
+
+// ---------- THRUST CONTROL ----------
+function unitVec(v) {
+  const n = Math.hypot(v[0],v[1],v[2]);
+  return n>0 ? [v[0]/n, v[1]/n, v[2]/n] : [0,0,0];
+}
+function vecSub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function vecCross(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function vecDot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function vecLen(a){return Math.hypot(a[0],a[1],a[2]);}
+function vecScale(a,s){return[a[0]*s,a[1]*s,a[2]*s];}
+
+// Compute thrust acceleration vector (km/s^2) given thrust magnitude (N) and direction in 'prograde'/'retro'/'normal'/'radial' or auto
+function computeThrustAccel(thrustN, dir, simT) {
+  if (thrustN <= 0) return null;
+  const mTot = STATE.ship.dryMass + STATE.ship.fuel; // kg
+  if (mTot <= 0) return null;
+  const accel_kms2 = (thrustN / mTot) / 1000.0; // m/s^2 → km/s^2 magnitude
+  let dirVec;
+  const v = STATE.ship.vel;
+  // need a reference body for radial/normal — use closest large body (Earth, Moon, Sun, Mars)
+  const bodies = bodyPositions(simT);
+  let refBody = 'sun';
+  let bestRatio = -Infinity;
+  for (const nm of BODY_LIST) {
+    const dr = vecSub(STATE.ship.pos, bodies[nm].pos);
+    const r = vecLen(dr);
+    const mu = BODIES[nm].mu;
+    const ratio = mu/(r*r);
+    if (ratio > bestRatio) { bestRatio = ratio; refBody = nm; }
+  }
+  const refPos = bodies[refBody].pos;
+  const refVel = bodies[refBody].vel;
+  const r_rel = vecSub(STATE.ship.pos, refPos);
+  const v_rel = vecSub(v, refVel);
+  if (dir === 'prograde')      dirVec = unitVec(v_rel);
+  else if (dir === 'retro')    dirVec = vecScale(unitVec(v_rel), -1);
+  else if (dir === 'normal')   dirVec = unitVec(vecCross(r_rel, v_rel));
+  else if (dir === 'radial')   dirVec = unitVec(r_rel);
+  else                          dirVec = unitVec(v_rel);
+  return vecScale(dirVec, accel_kms2);
+}
+
+// Apply instantaneous burn (used by EXECUTE BURN button)
+function applyImpulsiveBurn(dvMS, dir) {
+  const dv_kms = dvMS / 1000.0;
+  // Determine direction using current state
+  const bodies = bodyPositions(STATE.simT);
+  let refBody = 'sun', best = -Infinity;
+  for (const nm of BODY_LIST) {
+    const dr = vecSub(STATE.ship.pos, bodies[nm].pos);
+    const r = vecLen(dr);
+    const ratio = BODIES[nm].mu/(r*r);
+    if (ratio > best) { best = ratio; refBody = nm; }
+  }
+  const r_rel = vecSub(STATE.ship.pos, bodies[refBody].pos);
+  const v_rel = vecSub(STATE.ship.vel, bodies[refBody].vel);
+  let d;
+  if (dir === 'prograde')   d = unitVec(v_rel);
+  else if (dir === 'retro') d = vecScale(unitVec(v_rel), -1);
+  else if (dir === 'normal') d = unitVec(vecCross(r_rel, v_rel));
+  else                       d = unitVec(r_rel);
+  STATE.ship.vel[0] += d[0]*dv_kms;
+  STATE.ship.vel[1] += d[1]*dv_kms;
+  STATE.ship.vel[2] += d[2]*dv_kms;
+  // Fuel consumption via Tsiolkovsky: Δm = m * (1 - exp(-|Δv|/(Isp·g0)))
+  const dv_m = Math.abs(dvMS);
+  const ve = STATE.ship.isp * G0;
+  const mTot = STATE.ship.dryMass + STATE.ship.fuel;
+  const dm = mTot * (1 - Math.exp(-dv_m/ve));
+  STATE.ship.fuel = Math.max(0, STATE.ship.fuel - dm);
+  STATE.ship.dvUsed += dv_m;
+  setStatus('info', `Burn executed: ΔV=${dv_m.toFixed(1)} m/s ${dir}, fuel −${dm.toFixed(0)} kg`);
+}
+
+// ---------- LANDING CONTROLLER ----------
+// Hover-slam style P controller. Activates when within engagement range.
+function landingControl(simT) {
+  const bodies = bodyPositions(simT);
+  const target = STATE.landingTarget;
+  const bp = bodies[target].pos;
+  const bv = bodies[target].vel;
+  const R = BODIES[target].R;
+  const mu = BODIES[target].mu;
+  const r_rel = vecSub(STATE.ship.pos, bp);
+  const v_rel = vecSub(STATE.ship.vel, bv);
+  const r = vecLen(r_rel);
+  const h = r - R; // altitude
+  const v_radial = vecDot(v_rel, unitVec(r_rel)); // approaching if negative
+  // Target vertical descent: -max(2, 0.05*h) m/s
+  const v_target_mS = -Math.max(2, 0.05 * h * 1000); // convert h km→ m? h is in km so 0.05*h*1000 = 50*h
+  // Actually h in km; convert v_radial to m/s
+  const v_radial_mS = v_radial * 1000;
+  const Kp = 1.2;
+  const g_local = mu/(r*r); // km/s^2
+  const a_required_mS2 = g_local*1000 + Kp*(v_target_mS - v_radial_mS);
+  const mTot = STATE.ship.dryMass + STATE.ship.fuel;
+  let T_cmd = mTot * a_required_mS2; // N
+  T_cmd = Math.max(0, Math.min(T_cmd, STATE.ship.thrustMax));
+  // Apply opposite to v_rel (retro)
+  const dir = vecScale(unitVec(r_rel), 1); // up (away from body)
+  const accel_kms2 = (T_cmd/mTot)/1000;
+  return {accel: vecScale(dir, accel_kms2), thrustN: T_cmd, h, vrad: v_radial_mS};
+}
+
+function setStatus(kind, msg) {
+  const el = document.getElementById('status-text');
+  el.className = 'status-' + (kind || 'info');
+  el.textContent = msg;
+}
+
+// ---------- MISSION PRESETS ----------
+function applyPreset(name) {
+  // Always reset ship from current vehicle params and parking orbit
+  const parkAlt = parseFloat(document.getElementById('in-parkalt').value) || 200;
+  const dateStr = document.getElementById('in-date').value;
+  const launchDate = dateStr ? new Date(dateStr+'T00:00:00Z') : new Date();
+  STATE.startJD = dateToJD(launchDate);
+  STATE.simT = 0;
+  STATE.dvUsed = 0;
+  STATE.ship.dvUsed = 0;
+  STATE.ship.fuel = STATE.ship.fuelCap;
+  STATE.trail = [];
+  STATE.trailLastPos = null;
+
+  const bodies = bodyPositions(0);
+  const earthPos = bodies.earth.pos;
+  const earthVel = bodies.earth.vel;
+  const muE = BODIES.earth.mu;
+  const r_park = BODIES.earth.R + parkAlt; // km
+  const v_circ = Math.sqrt(muE/r_park); // km/s
+
+  // Place ship at LEO in ecliptic plane (Earth-local)
+  // Start position: behind Earth in solar orbit direction
+  const earthVelDir = unitVec(earthVel);
+  const earthUp = [0,0,1];
+  const earthNorm = unitVec(vecCross(earthVelDir, earthUp)); // points radially outward roughly
+  const startLocal = vecScale(earthNorm, r_park); // perpendicular to motion
+  const velLocal = vecScale(earthVelDir, v_circ);  // prograde-circular
+
+  STATE.ship.pos = [earthPos[0]+startLocal[0], earthPos[1]+startLocal[1], earthPos[2]+startLocal[2]];
+  STATE.ship.vel = [earthVel[0]+velLocal[0], earthVel[1]+velLocal[1], earthVel[2]+velLocal[2]];
+
+  // Now apply preset-specific burn
+  if (name === 'leo') {
+    setStatus('good', 'LEO parking orbit established. Use MANEUVER for burns.');
+  } else if (name === 'hohmann_moon') {
+    // Hohmann transfer Earth→Moon orbit (geocentric)
+    const r1 = r_park, r2 = 384400;
+    const a_t = (r1+r2)/2;
+    const v_t = Math.sqrt(muE*(2/r1 - 1/a_t));
+    const dv = (v_t - v_circ) * 1000;
+    applyImpulsiveBurn(dv, 'prograde');
+    setStatus('good', `Hohmann transfer to Moon initiated. ΔV=${dv.toFixed(1)} m/s`);
+  } else if (name === 'fast_moon') {
+    // Faster: ToF ≈ 3 days. Use higher ΔV.
+    const dv = 3200; // m/s, typical Apollo-class TLI
+    applyImpulsiveBurn(dv, 'prograde');
+    setStatus('good', `Fast transfer to Moon initiated. ΔV=${dv.toFixed(0)} m/s`);
+  } else if (name === 'free_return') {
+    const dv = 3100;
+    applyImpulsiveBurn(dv, 'prograde');
+    setStatus('good', `Free return trajectory initiated. Will loop Moon and return.`);
+  } else if (name === 'hohmann_mars') {
+    // Heliocentric Hohmann Earth→Mars
+    const muS = BODIES.sun.mu;
+    const r_e = vecLen(earthPos);
+    const r_m = 1.524 * AU;
+    const a_t = (r_e + r_m)/2;
+    const v_e_helio = Math.sqrt(muS/r_e);
+    const v_t = Math.sqrt(muS*(2/r_e - 1/a_t));
+    const dv_helio = (v_t - v_e_helio); // km/s, heliocentric
+    // Escape Earth + add to heliocentric: simplified, just add prograde in heliocentric
+    // First need C3 escape: v_inf^2 = (v_t - v_e)^2
+    const v_inf = Math.abs(dv_helio); // km/s
+    const v_esc_circle = Math.sqrt(2*muE/r_park);
+    const v_hyp_perigee = Math.sqrt(v_esc_circle*v_esc_circle + v_inf*v_inf);
+    const dv = (v_hyp_perigee - v_circ) * 1000;
+    applyImpulsiveBurn(dv, 'prograde');
+    setStatus('good', `Hohmann transfer to Mars initiated. ΔV=${dv.toFixed(0)} m/s (v∞=${v_inf.toFixed(2)} km/s)`);
+  } else if (name === 'venus_swingby') {
+    // Direct burn aiming at Venus encounter, gravity assist redirects to Mars
+    // Simplified: just do a moderate prograde burn; user observes trajectory
+    const dv = 3700;
+    applyImpulsiveBurn(dv, 'prograde');
+    // Slight retrograde radial component to bend toward Venus orbit
+    const dv2 = -300;
+    applyImpulsiveBurn(dv2, 'radial');
+    setStatus('good', `Venus swing-by trajectory initiated. Encounter ~3-5 months.`);
+  } else if (name === 'custom') {
+    setStatus('info', 'Custom mode. Use MANEUVER controls.');
+  }
+}
+
+// ---------- THREE.JS RENDERER ----------
+let scene, camera, renderer, controls;
+let bodyMeshes = {}, bodyLabels = {};
+let shipGroup, shipMesh;
+let trailLine, trailGeom, trailPositions;
+let RENDER_SCALE = 1e-6; // 1 unit = 1,000,000 km
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000005);
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.0001, 1e8);
+  camera.position.set(200, 200, 200);
+  camera.up.set(0,0,1);
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 0.0001;
+  controls.maxDistance = 1e6;
+  // Lights
+  scene.add(new THREE.AmbientLight(0x222222));
+  const sunLight = new THREE.PointLight(0xffeecc, 2.5, 0, 0);
+  sunLight.position.set(0,0,0);
+  scene.add(sunLight);
+  // Starfield
+  const starsGeom = new THREE.BufferGeometry();
+  const starsPos = [];
+  for (let i=0; i<3000; i++) {
+    const r = 5e5 + Math.random()*1e5;
+    const t = Math.acos(2*Math.random()-1);
+    const ph = 2*Math.PI*Math.random();
+    starsPos.push(r*Math.sin(t)*Math.cos(ph), r*Math.sin(t)*Math.sin(ph), r*Math.cos(t));
+  }
+  starsGeom.setAttribute('position', new THREE.Float32BufferAttribute(starsPos, 3));
+  const starsMat = new THREE.PointsMaterial({color:0xffffff, size:200, sizeAttenuation:true});
+  scene.add(new THREE.Points(starsGeom, starsMat));
+  // Bodies
+  for (const name of BODY_LIST) {
+    const b = BODIES[name];
+    const r_disp = b.R * b.displayScale * RENDER_SCALE;
+    const geom = new THREE.SphereGeometry(r_disp, 32, 24);
+    let mat;
+    if (name === 'sun') {
+      mat = new THREE.MeshBasicMaterial({color: b.color});
+    } else {
+      mat = new THREE.MeshStandardMaterial({color: b.color, roughness: 0.9, metalness: 0.1});
+    }
+    const mesh = new THREE.Mesh(geom, mat);
+    scene.add(mesh);
+    bodyMeshes[name] = {mesh, geom, mat, baseR: r_disp};
+  }
+  // Spacecraft
+  shipGroup = new THREE.Group();
+  // Body (cylinder)
+  const bodyMat = new THREE.MeshStandardMaterial({color:0xeeeeee, roughness:0.4, metalness:0.7});
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16), bodyMat);
+  cyl.rotation.x = Math.PI/2;
+  shipGroup.add(cyl);
+  // Nose cone
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.6, 16), bodyMat);
+  nose.position.z = 0.9;
+  nose.rotation.x = Math.PI/2;
+  shipGroup.add(nose);
+  // Solar panels
+  const panelMat = new THREE.MeshStandardMaterial({color:0x224488, roughness:0.3, metalness:0.5});
+  const p1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.05, 0.8), panelMat);
+  shipGroup.add(p1);
+  // Thrust nozzle
+  const noz = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.4, 12), new THREE.MeshStandardMaterial({color:0x333333}));
+  noz.position.z = -0.8;
+  noz.rotation.x = -Math.PI/2;
+  shipGroup.add(noz);
+  // Thrust flame (hidden by default)
+  const flameMat = new THREE.MeshBasicMaterial({color:0xff8800, transparent:true, opacity:0.7});
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.2, 12), flameMat);
+  flame.position.z = -1.6;
+  flame.rotation.x = Math.PI/2;
+  flame.visible = false;
+  flame.name = 'flame';
+  shipGroup.add(flame);
+  // Scale ship visible regardless of distance
+  shipGroup.scale.setScalar(0.1);
+  scene.add(shipGroup);
+  // Trail
+  trailGeom = new THREE.BufferGeometry();
+  trailPositions = new Float32Array(STATE.trailMax * 3);
+  trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  trailGeom.setDrawRange(0, 0);
+  trailLine = new THREE.Line(trailGeom, new THREE.LineBasicMaterial({color:0x00ffff}));
+  scene.add(trailLine);
+  // Resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function updateBodyDisplayScale() {
+  const exag = STATE.scaleMode === 'exag';
+  for (const name of BODY_LIST) {
+    const b = BODIES[name];
+    const fac = exag ? b.displayScale : 1;
+    const r = b.R * fac * RENDER_SCALE;
+    bodyMeshes[name].mesh.scale.setScalar(r/bodyMeshes[name].baseR);
+  }
+}
+
+function kmToScene(p) {
+  return new THREE.Vector3(p[0]*RENDER_SCALE, p[1]*RENDER_SCALE, p[2]*RENDER_SCALE);
+}
+
+function renderFrame() {
+  const bodies = bodyPositions(STATE.simT);
+  for (const name of BODY_LIST) {
+    const p = bodies[name].pos;
+    bodyMeshes[name].mesh.position.copy(kmToScene(p));
+  }
+  // Ship
+  const sp = kmToScene(STATE.ship.pos);
+  shipGroup.position.copy(sp);
+  // Orient ship along velocity
+  const vel = STATE.ship.vel;
+  const vlen = Math.hypot(vel[0],vel[1],vel[2]);
+  if (vlen > 0) {
+    const dir = new THREE.Vector3(vel[0]/vlen, vel[1]/vlen, vel[2]/vlen);
+    const m = new THREE.Matrix4();
+    m.lookAt(new THREE.Vector3(0,0,0), dir.negate(), new THREE.Vector3(0,0,1));
+    shipGroup.quaternion.setFromRotationMatrix(m);
+  }
+  // Ship visual size: scale with camera distance so always visible
+  const camDist = camera.position.distanceTo(shipGroup.position);
+  shipGroup.scale.setScalar(Math.max(camDist*0.005, 0.01));
+  // Trail
+  if (STATE.showTrail) {
+    const lastIdx = STATE.trail.length;
+    if (lastIdx > 0) {
+      trailGeom.setDrawRange(0, lastIdx);
+      trailGeom.attributes.position.needsUpdate = true;
+    } else {
+      trailGeom.setDrawRange(0, 0);
+    }
+    trailLine.visible = true;
+  } else {
+    trailLine.visible = false;
+  }
+  // Camera follow
+  if (STATE.cameraMode !== 'free') {
+    let target;
+    if (STATE.cameraMode === 'ship') target = shipGroup.position;
+    else target = bodyMeshes[STATE.cameraMode].mesh.position;
+    controls.target.copy(target);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// Trail update with adaptive density: store every ~5,000 km of motion or every Nth integration step
+function maybeAppendTrail() {
+  const p = STATE.ship.pos;
+  if (!STATE.trailLastPos) {
+    STATE.trailLastPos = [p[0],p[1],p[2]];
+    STATE.trail.push([p[0],p[1],p[2]]);
+    const i = (STATE.trail.length-1)*3;
+    trailPositions[i] = p[0]*RENDER_SCALE;
+    trailPositions[i+1] = p[1]*RENDER_SCALE;
+    trailPositions[i+2] = p[2]*RENDER_SCALE;
+    return;
+  }
+  const dx = p[0]-STATE.trailLastPos[0], dy = p[1]-STATE.trailLastPos[1], dz = p[2]-STATE.trailLastPos[2];
+  const d = Math.hypot(dx,dy,dz);
+  // adaptive: near planets store dense (every 50 km), far store sparse (every 5000 km)
+  const bodies = bodyPositions(STATE.simT);
+  let minDist = Infinity;
+  for (const nm of BODY_LIST) {
+    if (nm==='sun') continue;
+    const dr = vecSub(STATE.ship.pos, bodies[nm].pos);
+    const r = vecLen(dr);
+    if (r < minDist) minDist = r;
+  }
+  let threshold = 5000; // km
+  if (minDist < 50000) threshold = 50;
+  else if (minDist < 500000) threshold = 500;
+  else if (minDist < 5000000) threshold = 5000;
+  else threshold = 50000;
+  if (d < threshold) return;
+  STATE.trailLastPos = [p[0],p[1],p[2]];
+  if (STATE.trail.length >= STATE.trailMax) {
+    // shift
+    STATE.trail.shift();
+    // shift Float32Array
+    for (let i=0; i<(STATE.trailMax-1)*3; i++) trailPositions[i] = trailPositions[i+3];
+  }
+  STATE.trail.push([p[0],p[1],p[2]]);
+  const i = (STATE.trail.length-1)*3;
+  trailPositions[i] = p[0]*RENDER_SCALE;
+  trailPositions[i+1] = p[1]*RENDER_SCALE;
+  trailPositions[i+2] = p[2]*RENDER_SCALE;
+}
+
+// ---------- MAIN LOOP ----------
+let lastFrameTime = 0;
+function mainLoop(ts) {
+  requestAnimationFrame(mainLoop);
+  const realDt = Math.min((ts - lastFrameTime)/1000, 0.1);
+  lastFrameTime = ts;
+  if (!STATE.paused) {
+    // Total simulated time this frame
+    const simDtTotal = realDt * STATE.warp;
+    // Subdivide into integration steps of dt seconds
+    let remaining = simDtTotal;
+    const maxSubsteps = 2000; // safety
+    let steps = 0;
+    while (remaining > 0 && steps < maxSubsteps) {
+      const dt = Math.min(STATE.dt, remaining);
+      // Compute thrust
+      let thrustAccel = null;
+      let thrustN = 0;
+      let flameOn = false;
+      if (STATE.manualRetro && STATE.ship.fuel > 0) {
+        const a = computeThrustAccel(STATE.ship.thrustMax, 'retro', STATE.simT);
+        if (a) { thrustAccel = a; thrustN = STATE.ship.thrustMax; flameOn = true; }
+      } else if (STATE.landingMode && STATE.ship.fuel > 0) {
+        const lc = landingControl(STATE.simT);
+        thrustAccel = lc.accel;
+        thrustN = lc.thrustN;
+        flameOn = thrustN > 100;
+        if (lc.h < 0.5) {
+          setStatus('good', `LANDED on ${STATE.landingTarget}. Final |v|=${Math.abs(lc.vrad).toFixed(2)} m/s`);
+          STATE.paused = true;
+          flameOn = false;
+        } else if (lc.h < 0 && Math.abs(lc.vrad) > 50) {
+          setStatus('bad', `CRASH on ${STATE.landingTarget}. Impact |v|=${Math.abs(lc.vrad).toFixed(0)} m/s`);
+          STATE.paused = true;
+          flameOn = false;
+        }
+      }
+      if (STATE.integrator === 'rk4') stepRK4(dt, thrustAccel);
+      else stepEulerCromer(dt, thrustAccel);
+      // Consume fuel
+      if (thrustN > 0 && STATE.ship.fuel > 0) {
+        const ve = STATE.ship.isp * G0;
+        const mdot = thrustN / ve;
+        const dm = mdot * dt;
+        STATE.ship.fuel = Math.max(0, STATE.ship.fuel - dm);
+        STATE.ship.dvUsed += (thrustN/(STATE.ship.dryMass+STATE.ship.fuel+dm)) * dt;
+      }
+      STATE.simT += dt;
+      remaining -= dt;
+      steps++;
+      // Flame visibility
+      const flame = shipGroup.getObjectByName('flame');
+      if (flame) flame.visible = flameOn;
+    }
+    maybeAppendTrail();
+  }
+  renderFrame();
+  updateTelemetry();
+}
+
+// ---------- TELEMETRY ----------
+function updateTelemetry() {
+  const ship = STATE.ship;
+  const bodies = bodyPositions(STATE.simT);
+  document.getElementById('tm-time').textContent = (STATE.simT/SECONDS_PER_DAY).toFixed(3) + ' d';
+  const jd = STATE.startJD + STATE.simT/SECONDS_PER_DAY;
+  const date = jdToDate(jd);
+  document.getElementById('tm-date').textContent = date.toISOString().substring(0,10);
+  document.getElementById('tm-mass').textContent = (ship.dryMass+ship.fuel).toFixed(0) + ' kg';
+  document.getElementById('tm-fuel').textContent = ship.fuel.toFixed(0) + ' kg';
+  const v_helio = Math.hypot(ship.vel[0], ship.vel[1], ship.vel[2]);
+  document.getElementById('tm-speed').textContent = v_helio.toFixed(3) + ' km/s';
+  const altE = vecLen(vecSub(ship.pos, bodies.earth.pos)) - BODIES.earth.R;
+  document.getElementById('tm-alt-e').textContent = altE.toFixed(0) + ' km';
+  const altM = vecLen(vecSub(ship.pos, bodies.moon.pos)) - BODIES.moon.R;
+  document.getElementById('tm-alt-m').textContent = altM.toFixed(0) + ' km';
+  const altMars = vecLen(vecSub(ship.pos, bodies.mars.pos));
+  document.getElementById('tm-alt-mars').textContent = (altMars/1e6).toFixed(2) + ' Gm';
+  document.getElementById('tm-dv').textContent = ship.dvUsed.toFixed(0) + ' m/s';
+}
+
+function jdToDate(jd) {
+  const J = jd + 0.5;
+  const Z = Math.floor(J);
+  const F = J - Z;
+  let A = Z;
+  if (Z >= 2299161) {
+    const alpha = Math.floor((Z - 1867216.25)/36524.25);
+    A = Z + 1 + alpha - Math.floor(alpha/4);
+  }
+  const B = A + 1524;
+  const C = Math.floor((B - 122.1)/365.25);
+  const D = Math.floor(365.25*C);
+  const E = Math.floor((B-D)/30.6001);
+  const day = B - D - Math.floor(30.6001*E) + F;
+  const month = (E < 14) ? E-1 : E-13;
+  const year = (month > 2) ? C-4716 : C-4715;
+  const d = new Date(Date.UTC(year, month-1, Math.floor(day), 0, 0, 0));
+  return d;
+}
+
+// ---------- UI BINDINGS ----------
+const VEHICLE_PRESETS = {
+  apollo:   {dry:13500,  fuel:110000,  isp:421, thrust:1000},
+  starship: {dry:120000, fuel:1200000, isp:380, thrust:16000},
+  sls:      {dry:12000,  fuel:130000,  isp:462, thrust:1100},
+  custom:   {dry:50000,  fuel:200000,  isp:350, thrust:2000}
+};
+
+function applyVehiclePreset(name) {
+  const p = VEHICLE_PRESETS[name];
+  document.getElementById('sl-dry').value = p.dry;
+  document.getElementById('sl-fuel').value = p.fuel;
+  document.getElementById('sl-isp').value = p.isp;
+  document.getElementById('sl-thrust').value = p.thrust;
+  syncSliders();
+}
+
+function syncSliders() {
+  const dry = parseFloat(document.getElementById('sl-dry').value);
+  const fuel = parseFloat(document.getElementById('sl-fuel').value);
+  const isp = parseFloat(document.getElementById('sl-isp').value);
+  const thrust = parseFloat(document.getElementById('sl-thrust').value);
+  STATE.ship.dryMass = dry;
+  STATE.ship.fuelCap = fuel;
+  if (STATE.ship.fuel > fuel) STATE.ship.fuel = fuel;
+  STATE.ship.isp = isp;
+  STATE.ship.thrustMax = thrust * 1000; // kN to N
+  document.getElementById('lab-dry').textContent = dry.toFixed(0)+' kg';
+  document.getElementById('lab-fuel').textContent = fuel.toFixed(0)+' kg';
+  document.getElementById('lab-isp').textContent = isp.toFixed(0)+' s';
+  document.getElementById('lab-thrust').textContent = thrust.toFixed(0)+' kN';
+}
+
+function bindUI() {
+  // Language
+  document.getElementById('lang-en').onclick = () => applyLang('en');
+  document.getElementById('lang-ko').onclick = () => applyLang('ko');
+  // Play/pause
+  document.getElementById('btn-play').onclick = () => {
+    STATE.paused = !STATE.paused;
+    document.getElementById('btn-play').textContent = STATE.paused ? I18N[LANG].play : I18N[LANG].pause;
+  };
+  document.getElementById('btn-reset').onclick = () => {
+    applyPreset(STATE.preset);
+    STATE.paused = true;
+    document.getElementById('btn-play').textContent = I18N[LANG].play;
+  };
+  document.getElementById('btn-help').onclick = () => document.getElementById('help-overlay').classList.add('show');
+  document.getElementById('btn-close-help').onclick = () => document.getElementById('help-overlay').classList.remove('show');
+  // Warp
+  document.getElementById('time-warp').onchange = e => STATE.warp = parseFloat(e.target.value);
+  // Scale
+  document.getElementById('scale-mode').onchange = e => {
+    STATE.scaleMode = e.target.value;
+    updateBodyDisplayScale();
+  };
+  // Camera
+  document.getElementById('camera-mode').onchange = e => STATE.cameraMode = e.target.value;
+  // Vehicle preset
+  document.getElementById('vehicle-preset').onchange = e => applyVehiclePreset(e.target.value);
+  // Sliders
+  ['sl-dry','sl-fuel','sl-isp','sl-thrust'].forEach(id => {
+    document.getElementById(id).oninput = syncSliders;
+  });
+  // Integration controls
+  document.getElementById('in-dt').onchange = e => STATE.dt = parseFloat(e.target.value);
+  document.getElementById('in-integrator').onchange = e => STATE.integrator = e.target.value;
+  // Mission preset
+  document.getElementById('btn-apply-preset').onclick = () => {
+    STATE.preset = document.getElementById('mission-preset').value;
+    applyPreset(STATE.preset);
+  };
+  // Burn direction tabs
+  ['prograde','retro','normal','radial'].forEach(d => {
+    document.getElementById('tab-'+d).onclick = () => {
+      STATE.burnDir = d;
+      ['prograde','retro','normal','radial'].forEach(x => document.getElementById('tab-'+x).classList.toggle('active', x===d));
+    };
+  });
+  document.getElementById('btn-burn').onclick = () => {
+    const dv = parseFloat(document.getElementById('burn-dv').value);
+    applyImpulsiveBurn(dv, STATE.burnDir);
+  };
+  // Landing
+  document.getElementById('btn-landing-mode').onclick = () => {
+    STATE.landingMode = !STATE.landingMode;
+    document.getElementById('btn-landing-mode').classList.toggle('active', STATE.landingMode);
+    STATE.landingTarget = document.getElementById('landing-target').value;
+    setStatus(STATE.landingMode?'warn':'info', STATE.landingMode ? `Auto-land ARMED → ${STATE.landingTarget}` : 'Auto-land OFF');
+  };
+  document.getElementById('landing-target').onchange = e => STATE.landingTarget = e.target.value;
+  // Manual retro (hold)
+  const retroBtn = document.getElementById('btn-manual-retro');
+  retroBtn.onmousedown = () => { STATE.manualRetro = true; retroBtn.classList.add('active'); };
+  retroBtn.onmouseup = () => { STATE.manualRetro = false; retroBtn.classList.remove('active'); };
+  retroBtn.onmouseleave = () => { STATE.manualRetro = false; retroBtn.classList.remove('active'); };
+  retroBtn.ontouchstart = (e) => { e.preventDefault(); STATE.manualRetro = true; retroBtn.classList.add('active'); };
+  retroBtn.ontouchend = () => { STATE.manualRetro = false; retroBtn.classList.remove('active'); };
+  // Trail
+  document.getElementById('cb-trail').onchange = e => STATE.showTrail = e.target.checked;
+  document.getElementById('trail-max').onchange = e => {
+    const n = parseInt(e.target.value);
+    STATE.trailMax = n;
+    trailPositions = new Float32Array(n*3);
+    trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+    STATE.trail = [];
+    STATE.trailLastPos = null;
+    trailGeom.setDrawRange(0, 0);
+  };
+  document.getElementById('btn-clear-trail').onclick = () => {
+    STATE.trail = [];
+    STATE.trailLastPos = null;
+    trailGeom.setDrawRange(0, 0);
+  };
+  // Horizons sync
+  document.getElementById('btn-sync-horizons').onclick = syncHorizons;
+  // Date default = today
+  document.getElementById('in-date').value = new Date().toISOString().substring(0,10);
+  // Keyboard
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); document.getElementById('btn-play').click(); }
+    else if (e.code === 'KeyR') { document.getElementById('btn-reset').click(); }
+  });
+}
+
+// ---------- HORIZONS SYNC (CORS proxy) ----------
+async function syncHorizons() {
+  const status = document.getElementById('sync-status');
+  status.textContent = 'Connecting to Horizons via corsproxy.io ...';
+  status.className = 'status-info';
+  const dateStr = document.getElementById('in-date').value;
+  const proxy = 'https://corsproxy.io/?';
+  // Earth as test
+  try {
+    const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27399%27&CENTER=%27500@10%27&MAKE_EPHEM=YES&EPHEM_TYPE=VECTORS&START_TIME=%27${dateStr}%27&STOP_TIME=%27${dateStr}+12:00%27&STEP_SIZE=%2712h%27&OUT_UNITS=KM-S&REF_PLANE=ECLIPTIC&VEC_TABLE=2`;
+    const resp = await fetch(proxy + encodeURIComponent(url));
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    const text = await resp.text();
+    // Parse $$SOE ... $$EOE block
+    const m = text.match(/\$\$SOE([\s\S]+?)\$\$EOE/);
+    if (!m) throw new Error('Could not parse response');
+    const block = m[1].trim().split('\n');
+    // Expected line 2: X = ... Y = ... Z = ...
+    const line2 = block[1] || '';
+    const line3 = block[2] || '';
+    const xyz = line2.match(/X\s*=\s*([-\d.E+]+)\s*Y\s*=\s*([-\d.E+]+)\s*Z\s*=\s*([-\d.E+]+)/);
+    const vxyz = line3.match(/VX\s*=\s*([-\d.E+]+)\s*VY\s*=\s*([-\d.E+]+)\s*VZ\s*=\s*([-\d.E+]+)/);
+    if (xyz && vxyz) {
+      status.textContent = `Horizons OK. Earth at [${parseFloat(xyz[1]).toExponential(2)}, ${parseFloat(xyz[2]).toExponential(2)}, ${parseFloat(xyz[3]).toExponential(2)}] km`;
+      status.className = 'status-good';
+    } else {
+      status.textContent = 'Parsed but no XYZ data. Using offline approx.';
+      status.className = 'status-warn';
+    }
+  } catch (err) {
+    status.textContent = 'Horizons sync failed: ' + err.message + ' — using offline approx.';
+    status.className = 'status-bad';
+  }
+}
+
+// ---------- INIT ----------
+function init() {
+  applyLang('en');
+  applyVehiclePreset('apollo');
+  bindUI();
+  initThree();
+  applyPreset('leo');
+  updateBodyDisplayScale();
+  setStatus('info', I18N[LANG].status_idle);
+  requestAnimationFrame(mainLoop);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
