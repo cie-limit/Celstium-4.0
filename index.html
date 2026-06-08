@@ -476,9 +476,9 @@ function initScene(){
   S.rdr.setPixelRatio(Math.min(2, devicePixelRatio));
   host.appendChild(S.rdr.domElement);
 
-  S.ctrl = new THREE.OrbitControls(S.cam, S.rdr.domElement);
-  S.ctrl.enableDamping = true; S.ctrl.dampingFactor = 0.08;
-  S.ctrl.minDistance = 100; S.ctrl.maxDistance = 1e10;
+ // S.ctrl = new THREE.OrbitControls(S.cam, S.rdr.domElement);
+ // S.ctrl.enableDamping = true; S.ctrl.dampingFactor = 0.08;
+ // S.ctrl.minDistance = 100; S.ctrl.maxDistance = 1e10;
 
   S.scene.add(new THREE.AmbientLight(0x666688, 0.6));
   const sunLight = new THREE.PointLight(0xffffff, 2, 0, 0); S.scene.add(sunLight);
@@ -672,13 +672,13 @@ function syncMeshes(){
 
 /* =====[ PART 8 ] === 카메라 모드 ========================================= */
 function updateCamera(){
-  if (S.camMode==='free'){ S.ctrl.update(); return; }
-  let tgt = null;
-  if (S.camMode==='ship') tgt = S.ship.pos;
-  else if (S.bodies[S.camMode]) tgt = S.bodies[S.camMode].pos;
-  if (!tgt){ S.ctrl.update(); return; }
-  S.ctrl.target.lerp(tgt, 0.15);
-  S.ctrl.update();
+//  if (S.camMode==='free'){ S.ctrl.update(); return; }
+//  let tgt = null;
+//  if (S.camMode==='ship') tgt = S.ship.pos;
+//  else if (S.bodies[S.camMode]) tgt = S.bodies[S.camMode].pos;
+//  if (!tgt){ S.ctrl.update(); return; }
+//  S.ctrl.target.lerp(tgt, 0.15);
+//  S.ctrl.update();
 }
 
 /* =====[ PART 9 ] === 미션 프리셋 + 초기 궤도 배치 ======================== */
