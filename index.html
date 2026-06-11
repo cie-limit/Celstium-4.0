@@ -379,11 +379,11 @@ const VEHICLES = {
   'Custom':{dry:50000,fuel:200000,isp:350,thrust:5000},
 };
 
-/* =====[ PART 2 ] === 전역 상태 =========================================== */
+/* =====[ PART 2 ] === 전역 상태 & 다국어 사전 =========================== */
 const S = {
   scene:null,cam:null,rdr:null,ctrl:null,
   meshes:{},trail:null,trailPos:[],trailMax:5000,trailMinKm:10,
-  bodies:{},                  // {name: {pos:Vec3, mu, R}}
+  bodies:{},
   ship:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),
         dry:13500,fuel:110000,fuel0:110000,isp:421,thrustKN:1000,
         throttle:0,burnDir:'prograde',landed:false,crashed:false,
@@ -392,12 +392,49 @@ const S = {
   vis:{scale:'exag', scaleK:30, trail:true},
   camMode:'free', camTarget:'earth',
   csvLog:[],
-  ga:null,                    // GA 인스턴스
-  langs:{en:{}, ko:{
-    burnOK:'분사 완료', noFuel:'연료 부족', applied:'프리셋 적용됨',
-    idle:'대기 중 — 초기 조건 설정 후 PLAY',
-    training:'착륙 알고리즘 최적화 중 — 유전 세대 학습 진행',
-    landed:'착륙 성공', crashed:'추락', play:'재생 중', paused:'일시정지'}},
+  ga:null,
+  langs:{
+    en:{
+      burnOK:'Burn executed', noFuel:'Not enough fuel', applied:'Preset applied',
+      idle:'Idle — set initial conditions and PLAY',
+      training:'Optimizing landing — GA training...',
+      landed:'LANDED', crashed:'CRASHED', play_stat:'RUNNING', paused:'PAUSED',
+      play:'PLAY', reset:'RESET', help:'?', warp:'WARP', visual:'VISUAL',
+      scale_exag:'Exaggerated', scale_real:'Realistic 1:1', camera:'CAMERA',
+      cam_free:'Free Orbit', cam_ship:'Ship Follow', cam_earth:'Earth Centered', cam_moon:'Moon Centered', cam_sun:'Sun Centered',
+      telemetry:'TELEMETRY', sim_time:'SIM TIME', sim_date:'DATE', ship_mass:'SHIP MASS', fuel:'FUEL', speed:'SPEED',
+      alt_earth:'ALT (Earth)', alt_moon:'ALT (Moon)', alt_mars:'DIST (Mars)', dv_used:'ΔV USED', status:'STATUS',
+      status_idle:'Idle — set initial conditions and PLAY', mission:'MISSION PRESET',
+      m_leo:'LEO Parking Orbit (200 km)', m_hm:'Hohmann Transfer → Moon', m_fm:'Fast Transfer → Moon (3 days)', m_fr:'Free Return Trajectory',
+      m_hmars:'Hohmann Transfer → Mars', m_vsb:'Venus Swing-by → Mars', m_custom:'Custom (manual control)', apply:'APPLY PRESET',
+      modes:'MANEUVER', prograde:'Prograde', retrograde:'Retro', normal:'Normal', radial:'Radial', burn_dv:'ΔV (m/s)', burn:'EXECUTE BURN',
+      landing:'LANDING', target:'Target', enable_landing:'ENABLE AUTO-LAND', manual_retro:'HOLD: MANUAL RETRO',
+      vehicle:'VEHICLE PARAMETERS', vehicle_preset:'Preset', v_apollo:'Apollo S-IVB', v_ss:'SpaceX Starship', v_sls:'SLS Block 1B', v_custom:'Custom',
+      dry_mass:'Dry Mass', fuel_cap:'Fuel Capacity', isp:'Isp (s)', thrust:'Max Thrust', initcond:'INITIAL CONDITIONS', parkorbit:'Parking Orbit Altitude (km)',
+      launch_date:'Launch Date (UTC)', dt:'Integration Step Δt (s)', integrator:'Integrator', trail:'TRAJECTORY TRAIL', trail_show:'Show Trail',
+      trail_max:'Max Points', clear_trail:'CLEAR TRAIL', online:'ONLINE EPHEMERIS', online_desc:'Offline JS Kepler approx (default)', sync:'SYNC WITH HORIZONS'
+    },
+    ko:{
+      burnOK:'분사 완료', noFuel:'연료 부족', applied:'프리셋 적용됨',
+      idle:'대기 중 — 초기 조건 설정 후 재생하세요',
+      training:'착륙 최적화 중 — 유전 세대 학습 진행',
+      landed:'착륙 성공', crashed:'추락', play_stat:'재생 중', paused:'일시정지',
+      play:'재생', reset:'초기화', help:'도움말', warp:'시간 가속', visual:'화면 비율',
+      scale_exag:'과장된 크기', scale_real:'실제 비율 (1:1)', camera:'카메라',
+      cam_free:'자유 시점', cam_ship:'우주선 추적', cam_earth:'지구 중심', cam_moon:'달 중심', cam_sun:'태양 중심',
+      telemetry:'원격 측정', sim_time:'시뮬레이션 시간', sim_date:'날짜', ship_mass:'선체 질량', fuel:'남은 연료', speed:'속도',
+      alt_earth:'고도 (지구)', alt_moon:'고도 (달)', alt_mars:'거리 (화성)', dv_used:'사용된 ΔV', status:'상태',
+      status_idle:'대기 중 — 재생(PLAY)을 누르세요', mission:'미션 프리셋',
+      m_leo:'지구 저궤도 주차 (200 km)', m_hm:'호만 전이 → 달', m_fm:'빠른 전이 → 달 (3일)', m_fr:'자유 귀환 궤도',
+      m_hmars:'호만 전이 → 화성', m_vsb:'금성 스윙바이 → 화성', m_custom:'사용자 지정 (수동 제어)', apply:'프리셋 적용',
+      modes:'궤도 기동', prograde:'순행', retrograde:'역행', normal:'법선', radial:'지름', burn_dv:'ΔV (m/s)', burn:'엔진 분사',
+      landing:'착륙', target:'목표', enable_landing:'자동 착륙 활성화', manual_retro:'수동 역추진 (홀드)',
+      vehicle:'우주선 제원', vehicle_preset:'프리셋', v_apollo:'아폴로 S-IVB', v_ss:'스페이스X 스타십', v_sls:'SLS Block 1B', v_custom:'사용자 지정',
+      dry_mass:'건조 질량', fuel_cap:'연료 탑재량', isp:'비추력 (s)', thrust:'최대 추력', initcond:'초기 조건', parkorbit:'주차 궤도 (km)',
+      launch_date:'발사일 (UTC)', dt:'적분 간격 Δt (s)', integrator:'적분기', trail:'궤적 표시', trail_show:'궤적 보이기',
+      trail_max:'최대 표시 점 수', clear_trail:'궤적 지우기', online:'온라인 천체력', online_desc:'오프라인 케플러 근사 (기본값)', sync:'HORIZONS 동기화'
+    }
+  },
   lang:'en',
 };
 
@@ -920,20 +957,47 @@ function exportCSV(){
   a.click();
 }
 
-/* =====[ PART 14 ] === UI 이벤트 바인딩 =================================== */
+
+/* =====[ PART 14 ] === UI 이벤트 바인딩 & 다국어 엔진 ===================== */
+function applyLanguage(){
+  // 1. 화면의 모든 텍스트를 현재 언어로 변경
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (S.langs[S.lang][key]) el.textContent = S.langs[S.lang][key];
+  });
+  
+  // 2. 언어 버튼 색상 전환
+  const btnEn = document.getElementById('lang-en');
+  const btnKo = document.getElementById('lang-ko');
+  if (btnEn) btnEn.className = (S.lang==='en') ? 'active' : '';
+  if (btnKo) btnKo.className = (S.lang==='ko') ? 'active' : '';
+  
+  // 3. 도움말 창 언어 전환
+  const helpEn = document.getElementById('help-body-en');
+  const helpKo = document.getElementById('help-body-ko');
+  if (helpEn) helpEn.style.display = (S.lang==='en') ? 'block' : 'none';
+  if (helpKo) helpKo.style.display = (S.lang==='ko') ? 'block' : 'none';
+}
+
 function bindUI(){
+  // 번역 버튼 기능 연결
+  $('langEn')?.addEventListener('click', ()=>{ S.lang='en'; applyLanguage(); });
+  $('langKo')?.addEventListener('click', ()=>{ S.lang='ko'; applyLanguage(); setStatus(S.langs.ko.idle); });
+
   $('play')?.addEventListener('click', ()=>{
     S.sim.paused = !S.sim.paused;
-    $('play').textContent = S.sim.paused ? 'PLAY' : 'PAUSE';
-    setStatus(S.sim.paused ? (S.langs[S.lang].paused||'PAUSED') : (S.langs[S.lang].play||'RUNNING'));
+    $('play').textContent = S.sim.paused ? S.langs[S.lang].play : S.langs[S.lang].paused;
+    setStatus(S.sim.paused ? S.langs[S.lang].paused : S.langs[S.lang].play_stat);
   });
+  
   $('reset')?.addEventListener('click', ()=>{
     S.sim.t=0; S.sim.paused=true; S.csvLog.length=0;
     resetShipToParkingOrbit(); S.trailPos.length=0;
-    setStatus(S.langs[S.lang].idle||'Idle');
-    if ($('play')) $('play').textContent='PLAY';
+    setStatus(S.langs[S.lang].idle);
+    if ($('play')) $('play').textContent = S.langs[S.lang].play;
     exportCSV();
   });
+
   $('applyPreset')?.addEventListener('click', applyPreset);
   $('burnExec')?.addEventListener('click', executeBurn);
   $('mPro')?.addEventListener('click', ()=>{ S.ship.burnDir='prograde'; });
@@ -941,6 +1005,7 @@ function bindUI(){
   $('mNormal')?.addEventListener('click', ()=>{ S.ship.burnDir='normal'; });
   $('mRadial')?.addEventListener('click', ()=>{ S.ship.burnDir='radial'; });
   $('autoLand')?.addEventListener('click', startAutoLand);
+  
   $('presetVeh')?.addEventListener('change', e=>{
     const v = VEHICLES[e.target.value]; if (!v) return;
     S.ship.dry=v.dry; S.ship.fuel=v.fuel; S.ship.fuel0=v.fuel;
@@ -950,6 +1015,7 @@ function bindUI(){
     if ($('isp')) $('isp').value=v.isp;
     if ($('maxThrust')) $('maxThrust').value=v.thrust;
   });
+  
   ['dryMass','fuelCap','isp','maxThrust'].forEach(k=>{
     $(k)?.addEventListener('input', e=>{
       const v = parseFloat(e.target.value);
@@ -960,6 +1026,7 @@ function bindUI(){
       if (k==='maxThrust') S.ship.thrustKN=v;
     });
   });
+  
   $('warp')?.addEventListener('change', e=>{ S.sim.warp = parseFloat(e.target.value)||1; });
   $('visual')?.addEventListener('change', e=>{ S.vis.scale = e.target.value==='Exaggerated'?'exag':'real'; });
   $('camera')?.addEventListener('change', e=>{
@@ -971,16 +1038,28 @@ function bindUI(){
     else if (v.includes('mars')) S.camMode='mars';
     else S.camMode='free';
   });
-  $('langEn')?.addEventListener('click', ()=>{ S.lang='en'; });
-  $('langKo')?.addEventListener('click', ()=>{ S.lang='ko'; setStatus(S.langs.ko.idle); });
   $('showTrail')?.addEventListener('change', e=>{ S.vis.trail = e.target.checked; });
   $('exportCsv')?.addEventListener('click', exportCSV);
-  // 발사일 변경 시 t0 갱신
   $('launchDate')?.addEventListener('change', e=>{
     const d = new Date(e.target.value);
     if (!isNaN(d)) S.sim.t0 = d.getTime()/1000;
   });
+
+  // 누락되었던 도움말(?) 버튼 기능 복구
+  const btnHelp = document.getElementById('btn-help');
+  const btnCloseHelp = document.getElementById('btn-close-help');
+  const helpOverlay = document.getElementById('help-overlay');
+  if(btnHelp && helpOverlay) {
+    btnHelp.addEventListener('click', () => helpOverlay.classList.add('show'));
+  }
+  if(btnCloseHelp && helpOverlay) {
+    btnCloseHelp.addEventListener('click', () => helpOverlay.classList.remove('show'));
+  }
+
+  // 페이지가 켜지자마자 기본 언어(EN) 적용
+  applyLanguage();
 }
+
 
 /* =====[ PART 15 ] === 메인 루프 ========================================== */
 let lastFrame = performance.now();
