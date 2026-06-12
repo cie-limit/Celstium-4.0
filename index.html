@@ -2,46 +2,215 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Celestium Orbital Simulator</title>
+    <title>Celestium Flight Control Center</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #canvas-container { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
-        
-        /* 좌측 제어 패널 */
+        /* 핵심 컬러 변수 설정 */
+        :root {
+            --v-red: #ff4655;
+            --v-dark-bg: #0f1923;
+            --v-panel-bg: rgba(15, 25, 35, 0.88);
+            --v-border: #383e42;
+            --v-text-white: #ece8e1;
+            --v-text-dim: #7e858a;
+            --v-cyan: #00f0ff;
+            --v-green: #00ff66;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--v-text-white);
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 좌측 상단 제어 패널 */
         #control-panel {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            background: rgba(15, 25, 35, 0.9); border: 1px solid #ff4655;
-            padding: 15px; width: 300px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            z-index: 10;
+            width: 340px;
+            background: var(--v-panel-bg);
+            border: 1px solid var(--v-red);
+            border-radius: 2px;
+            padding: 20px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            transition: border-color 0.3s;
         }
-        h3 { color: #ff4655; margin-top: 0; border-bottom: 1px solid #ff4655; padding-bottom: 5px; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-size: 12px; margin-bottom: 5px; color: #ece8e1; }
-        input, button { width: 100%; box-sizing: border-box; padding: 8px; margin-bottom: 5px; background: #1f2326; border: 1px solid #383e42; color: #fff; }
-        button { background: #ff4655; color: #111; font-weight: bold; cursor: pointer; border: none; text-transform: uppercase; }
-        button:hover { background: #ece8e1; }
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        
-        /* 우측 하단 발로란트 스타일 채팅/로그 창 */
-        #log-panel {
-            position: absolute; bottom: 20px; right: 20px; z-index: 10;
-            background: rgba(15, 25, 35, 0.9); border-left: 4px solid #ff4655;
-            width: 350px; height: 250px; display: flex; flex-direction: column;
+
+        #control-panel:hover {
+            border-color: var(--v-cyan);
         }
-        #log-header { background: rgba(255, 70, 85, 0.2); padding: 5px 10px; font-size: 12px; font-weight: bold; color: #ff4655; }
-        #log-content {
-            flex-grow: 1; padding: 10px; font-size: 12px; line-height: 1.4;
+
+        h3 {
+            margin: 0 0 15px 0;
+            color: var(--v-red);
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid rgba(255, 70, 85, 0.25);
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            color: var(--v-text-dim);
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            background: #1f2326;
+            border: 1px solid var(--v-border);
+            color: #ffffff;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: monospace;
+            border-radius: 2px;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--v-red);
+            outline: none;
+            background: #2a2e33;
+        }
+
+        /* 발로란트 시그니처 버튼 디자인 */
+        button {
+            position: relative;
+            width: 100%;
+            background: var(--v-red);
+            border: none;
+            color: #0f1923;
+            padding: 10px 15px;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 4px;
+            border-radius: 1px;
+        }
+
+        button:hover {
+            background: var(--v-text-white);
+            color: #0f1923;
+            box-shadow: 0 0 10px rgba(236, 232, 225, 0.5);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 5px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--v-text-white);
+            margin-top: 5px;
+        }
+
+        .checkbox-container input {
+            margin-right: 8px;
+            accent-color: var(--v-red);
+        }
+
+        /* === PART 2: 우측 하단 발로란트 채팅/로그 창 (스크롤 유지) === */
+        #valorant-chat-panel {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            width: 420px;
+            height: 320px;
+            background: var(--v-panel-bg);
+            border-left: 4px solid var(--v-red);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+        }
+
+        #chat-header {
+            background: rgba(255, 70, 85, 0.08);
+            padding: 8px 14px;
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--v-red);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(255, 70, 85, 0.15);
+        }
+
+        #chat-history-area {
+            flex-grow: 1;
             overflow-y: auto; /* 핵심: 스크롤 생성 */
+            padding: 15px;
             font-family: 'Courier New', Courier, monospace;
-            display: flex; flex-direction: column;
+            font-size: 12px;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            scroll-behavior: smooth;
         }
-        .log-msg { margin-bottom: 4px; word-wrap: break-word; }
-        .msg-system { color: #ff4655; }
-        .msg-physics { color: #00f0ff; }
-        .msg-alert { color: #ffcc00; }
-        
+
         /* 스크롤바 디자인 */
-        #log-content::-webkit-scrollbar { width: 6px; }
-        #log-content::-webkit-scrollbar-thumb { background: #ff4655; }
+        #chat-history-area::-webkit-scrollbar { width: 6px; }
+        #chat-history-area::-webkit-scrollbar-thumb { background: var(--v-red); }
+        #chat-history-area::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+
+        .chat-row {
+            margin-bottom: 6px;
+            word-break: break-all;
+            animation: v-fade 0.25s ease-out forwards;
+        }
+
+        .log-tag-sys { color: var(--v-red); font-weight: bold; }
+        .log-tag-phys { color: var(--v-cyan); }
+        .log-tag-ga { color: var(--v-green); }
+
+        @keyframes v-fade {
+            from { opacity: 0; transform: translateX(8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
     </style>
 </head>
 <body>
@@ -49,116 +218,123 @@
     <div id="canvas-container"></div>
 
     <div id="control-panel">
-        <h3>Celestium Control</h3>
+        <h3>CELESTIUM CONTROL</h3>
+        
         <div class="control-group">
-            <label>현재 시뮬레이션 시간</label>
-            <input type="text" id="sim-time-display" readonly>
+            <label>MISSION ELAPSED TIME (MET)</label>
+            <input type="text" id="met-display" value="000:00:00:00" readonly>
         </div>
+
         <div class="control-group">
-            <label><input type="checkbox" id="enable-logging"> 플라이트 데이터 기록 활성화</label>
-            <button id="btn-download-csv" style="background: #383e42; color: #fff;">CSV 로그 다운로드</button>
+            <label>FLIGHT RECORDER</label>
+            <label class="checkbox-container">
+                <input type="checkbox" id="chk-telemetry"> 데이터 기록 활성화
+            </label>
+            <button id="btn-export-csv" style="background: #2a2e33; color: var(--v-text-white); border: 1px solid var(--v-border);">CSV 로그 다운로드</button>
         </div>
+
         <div class="control-group">
-            <label>기동 (Δv: m/s)</label>
-            <input type="number" id="dv-input" value="100">
+            <label>기동 임펄스 (Δv: m/s)</label>
+            <input type="number" id="val-dv" value="150">
             <div class="btn-grid">
-                <button id="btn-prograde">순행(Pro)</button>
-                <button id="btn-retrograde">역행(Retro)</button>
-                <button id="btn-normal">법선(Norm)</button>
-                <button id="btn-radial">지름(Rad)</button>
+                <button id="cmd-prograde">순행(Pro)</button>
+                <button id="cmd-retrograde">역행(Retro)</button>
+                <button id="cmd-normal">법선(Norm)</button>
+                <button id="cmd-radial">지름(Rad)</button>
             </div>
         </div>
+
         <div class="control-group">
-            <label>자동 기동</label>
-            <button id="btn-hohmann">호만 전이 궤도(TLI) 계산</button>
-            <button id="btn-ga" style="background: #00f0ff;">순수 물리 GA 착륙 시도</button>
+            <label>자동 궤도 전이</label>
+            <button id="cmd-hohmann-transfer">호만 전이 궤도(TLI) 실행</button>
+        </div>
+
+        <div class="control-group">
+            <label>물리 기반 인공지능 제어</label>
+            <button id="cmd-deep-ga" style="background: var(--v-green); color: #0f1923;">심층 유전 알고리즘 착륙 연산</button>
         </div>
     </div>
 
-    <div id="log-panel">
-        <div id="log-header">MISSION CONTROL LOG</div>
-        <div id="log-content" id="chat-box"></div>
+    <div id="valorant-chat-panel">
+        <div id="chat-header">MISSION DATA LINK // ONLINE</div>
+        <div id="chat-history-area"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        // === PART 4: 순수 물리 상수 및 전역 변수 설정 ===
-        // 실제 물리 단위(m, kg, s)만을 사용합니다. 눈속임 배율 절대 금지.
-        const G = 6.67430e-11; 
-        const M_EARTH = 5.972e24;
-        const R_EARTH = 6371000;
-        const M_MOON = 7.342e22;
-        const R_MOON = 1737400;
-        const DIST_MOON = 384400000; 
-
-        // 그래픽 렌더링을 위한 시각적 스케일 (화면에 보이기 위함이며 물리 연산에는 절대 개입하지 않음)
-        const VISUAL_SCALE = 1e-6; 
+        // === PART 5: 눈속임 없는 실제 물리 상수 ===
+        const G = 6.67430e-11;          // 만유인력 상수
+        const M_EARTH = 5.9722e24;      // 지구 질량 (kg)
+        const R_EARTH = 6371000;        // 지구 반지름 (m)
+        const M_MOON = 7.342e22;        // 달 질량 (kg)
+        const R_MOON = 1737400;         // 달 반지름 (m)
+        const ORBIT_RADIUS_MOON = 384400000; // 달 공전 반경 (m)
+        
+        // 렌더링 스케일 (화면에 보이기 위한 축소 비율, 물리 연산에는 미적용)
+        const VISUAL_SCALE = 1e-6;
 
         let scene, camera, renderer, controls;
-        let earthMesh, moonMesh, scMesh, trailLine;
-        let trailPositions = [];
-        
-        // 우주선과 달의 실제 물리 상태 벡터
-        let scPos = new THREE.Vector3(R_EARTH + 400000, 0, 0); // 고도 400km 주차 궤도
-        let scVel = new THREE.Vector3(0, 0, Math.sqrt(G * M_EARTH / scPos.length())); // 정확한 원궤도 속도
-        let moonPos = new THREE.Vector3(DIST_MOON, 0, 0);
-        let moonVel = new THREE.Vector3(0, 0, Math.sqrt(G * M_EARTH / DIST_MOON));
+        let earthMesh, moonMesh, scMesh, orbitTrailLine;
+        const trailPositionsArray = [];
+        let telemetryDataLog = [];
 
-        let physicsDt = 60; // 1프레임당 60초 (서브스텝으로 쪼개서 연산됨)
-        let flightDataLog = [];
-        let isSimRunning = true;
-
-        // === PART 5: 발로란트 스타일 로그 및 UI 제어 시스템 ===
-        const logContent = document.getElementById('log-content');
+        // === PART 6: 우주선 및 달의 실제 물리 상태 벡터 ===
+        let scPos = new THREE.Vector3(R_EARTH + 400000, 0, 0); // 400km 주차 궤도
+        let scVel = new THREE.Vector3(0, 0, Math.sqrt((G * M_EARTH) / (R_EARTH + 400000)));
         
-        function addLog(msg, type = 'system') {
-            const timeStr = new Date().toLocaleTimeString();
-            const logEl = document.createElement('div');
-            logEl.className = `log-msg msg-${type}`;
-            logEl.innerText = `[${timeStr}] ${msg}`;
-            logContent.appendChild(logEl);
+        let moonPos = new THREE.Vector3(ORBIT_RADIUS_MOON, 0, 0);
+        let moonVel = new THREE.Vector3(0, 0, 1022); // 달의 평균 공전 속도
+
+        let timeStepDelta = 60; // 1프레임당 60초
+        let totalElapsedSeconds = 0;
+
+        // === PART 7: 발로란트 채팅 스크롤 유지 엔진 ===
+        const chatContainer = document.getElementById('chat-history-area');
+        function pushLog(message, type = 'sys') {
+            const row = document.createElement('div');
+            row.className = `chat-row`;
             
-            // 최신 메시지가 추가되면 스크롤을 항상 맨 아래로 이동
-            logContent.scrollTop = logContent.scrollHeight;
+            let prefix = `<span class="log-tag-sys">[SYSTEM]</span>`;
+            if (type === 'phys') prefix = `<span class="log-tag-phys">[PHYSICS]</span>`;
+            if (type === 'ga') prefix = `<span class="log-tag-ga">[AI-GA]</span>`;
+
+            row.innerHTML = `${prefix} ${message}`;
+            chatContainer.appendChild(row);
+            
+            // 핵심: 새 메시지가 추가될 때마다 스크롤을 맨 아래로 고정하여 오래된 기록을 위로 밀어냄
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 현재 날짜/시간 초기화
-        document.getElementById('sim-time-display').value = new Date().toLocaleString();
-
-        // === PART 6: 데이터 로깅 및 CSV 다운로드 시스템 ===
-        function logFlightData() {
-            if (document.getElementById('enable-logging').checked) {
-                flightDataLog.push({
+        // === PART 8: CSV 로그 기록 시스템 (종료 전 다운로드용) ===
+        function recordTelemetry() {
+            if (document.getElementById('chk-telemetry').checked) {
+                telemetryDataLog.push({
+                    time: totalElapsedSeconds,
                     x: scPos.x, y: scPos.y, z: scPos.z,
-                    v: scVel.length()
+                    vel: scVel.length()
                 });
             }
         }
 
-        document.getElementById('btn-download-csv').addEventListener('click', () => {
-            if (flightDataLog.length === 0) {
-                addLog("기록된 데이터가 없습니다. 먼저 로깅을 활성화하세요.", "msg-alert");
-                return;
-            }
-            let csv = "PosX,PosY,PosZ,Velocity\n";
-            flightDataLog.forEach(d => { csv += `${d.x},${d.y},${d.z},${d.v}\n`; });
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
+        document.getElementById('btn-export-csv').addEventListener('click', () => {
+            if (telemetryDataLog.length === 0) return pushLog("기록된 데이터가 없습니다.", "sys");
+            let csvData = "Time(s),X,Y,Z,Velocity\n";
+            telemetryDataLog.forEach(d => { csvData += `${d.time},${d.x},${d.y},${d.z},${d.vel}\n`; });
+            const blob = new Blob([csvData], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', 'Celestium_Log.csv');
+            a.href = url; a.download = 'Celestium_Log.csv';
             a.click();
-            addLog("CSV 로그 파일 다운로드가 완료되었습니다.", "system");
+            pushLog("CSV 비행 기록 다운로드 완료.", "sys");
         });
 
-        // === PART 7: 그래픽 엔진 (Three.js) 초기화 ===
+        // === PART 9: 그래픽 초기화 및 천체 렌더링 ===
         function initGraphics() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);
-            camera.position.set(0, 200, 500);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 8000);
+            camera.position.set(0, 350, 600);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -167,188 +343,186 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            const light = new THREE.DirectionalLight(0xffffff, 1.5);
-            light.position.set(1, 0, 1);
-            scene.add(light);
+            scene.add(new THREE.DirectionalLight(0xffffff, 1.4)).position.set(1, 0, 1);
             scene.add(new THREE.AmbientLight(0x222222));
 
-            // 천체 메쉬 생성 (크기는 시각적 식별을 위해 임의 조정됨, 위치는 실제 비율)
-            const earthGeo = new THREE.SphereGeometry(R_EARTH * VISUAL_SCALE * 3, 32, 32);
-            earthMesh = new THREE.Mesh(earthGeo, new THREE.MeshPhongMaterial({ color: 0x1a73e8, wireframe: true }));
+            earthMesh = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * VISUAL_SCALE * 3.5, 32, 32), new THREE.MeshPhongMaterial({ color: 0x1162d4, wireframe: true }));
             scene.add(earthMesh);
 
-            const moonGeo = new THREE.SphereGeometry(R_MOON * VISUAL_SCALE * 5, 32, 32);
-            moonMesh = new THREE.Mesh(moonGeo, new THREE.MeshPhongMaterial({ color: 0xaaaaaa, wireframe: true }));
+            moonMesh = new THREE.Mesh(new THREE.SphereGeometry(R_MOON * VISUAL_SCALE * 5.0, 32, 32), new THREE.MeshPhongMaterial({ color: 0x777777, wireframe: true }));
             scene.add(moonMesh);
 
-            const scGeo = new THREE.ConeGeometry(3, 8, 8);
-            scMesh = new THREE.Mesh(scGeo, new THREE.MeshBasicMaterial({ color: 0xff4655 }));
+            scMesh = new THREE.Mesh(new THREE.ConeGeometry(2.5, 6, 8), new THREE.MeshBasicMaterial({ color: 0xff4655 }));
             scene.add(scMesh);
 
-            // 궤적 선 초기화
             const trailGeo = new THREE.BufferGeometry();
-            trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3000 * 3), 3));
-            trailLine = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 }));
-            scene.add(trailLine);
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(5000 * 3), 3));
+            orbitTrailLine = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 }));
+            scene.add(orbitTrailLine);
         }
 
-        // === PART 8: 핵심 물리 엔진 (눈속임 없는 중력 및 수치적분) ===
+        // === PART 10: 물리 엔진 코어 (서브스텝 및 중력 적분) ===
         function updatePhysics() {
-            if (!isSimRunning) return;
-            
-            // 지구 충돌(터널링) 등 오차를 막기 위해 1프레임을 여러 번 쪼개서 연산 (Substepping)
-            const substeps = 10;
-            const dt = physicsDt / substeps;
+            const substeps = 25; // 오차를 막기 위한 시간 분할
+            const dt = timeStepDelta / substeps;
 
             for (let i = 0; i < substeps; i++) {
-                // 달의 위치 업데이트
-                let rMoonSq = moonPos.lengthSq();
-                let aMoon = moonPos.clone().normalize().multiplyScalar(-G * M_EARTH / rMoonSq);
+                totalElapsedSeconds += dt;
+
+                // 달의 공전 (지구 중력)
+                let aMoon = moonPos.clone().normalize().multiplyScalar(-(G * M_EARTH) / moonPos.lengthSq());
                 moonVel.addScaledVector(aMoon, dt);
                 moonPos.addScaledVector(moonVel, dt);
 
-                // 우주선이 받는 지구와 달의 중력 합산
-                let rEarthSq = scPos.lengthSq();
-                let aEarth = scPos.clone().normalize().multiplyScalar(-G * M_EARTH / rEarthSq);
-
-                let rMoonSc = new THREE.Vector3().subVectors(scPos, moonPos);
-                let rMoonScSq = rMoonSc.lengthSq();
-                let aMoonSc = rMoonSc.clone().normalize().multiplyScalar(-G * M_MOON / rMoonScSq);
-
-                let totalAcc = new THREE.Vector3().addVectors(aEarth, aMoonSc);
-                scVel.addScaledVector(totalAcc, dt);
+                // 우주선 중력 합산 (지구 + 달)
+                let aEarthSc = scPos.clone().normalize().multiplyScalar(-(G * M_EARTH) / scPos.lengthSq());
+                let rScMoon = new THREE.Vector3().subVectors(scPos, moonPos);
+                let aMoonSc = rScMoon.clone().normalize().multiplyScalar(-(G * M_MOON) / rScMoon.lengthSq());
+                
+                scVel.addScaledVector(new THREE.Vector3().addVectors(aEarthSc, aMoonSc), dt);
                 scPos.addScaledVector(scVel, dt);
 
-                // 충돌 검사 (진짜 물리 거리를 기준으로 판정)
-                let distToEarth = scPos.length();
-                if (distToEarth < R_EARTH) {
-                    addLog(`지구 표면 충돌! 고도: ${(distToEarth - R_EARTH).toFixed(0)}m. 속도: ${scVel.length().toFixed(0)}m/s`, "msg-alert");
-                    isSimRunning = false; return;
+                // 충돌 판정
+                if (scPos.length() <= R_EARTH) {
+                    pushLog("경고: 지구 표면 충돌. 궤도 초기화.", "sys");
+                    resetOrbit(); break;
                 }
-                
-                let distToMoon = rMoonSc.length();
-                if (distToMoon < R_MOON) {
-                    let relVel = new THREE.Vector3().subVectors(scVel, moonVel).length();
-                    addLog(`달 표면 도달! 접지 속도: ${relVel.toFixed(2)}m/s`, "msg-system");
-                    isSimRunning = false; return;
+                if (rScMoon.length() <= R_MOON) {
+                    pushLog(`달 표면 도달! 접지 속도: ${new THREE.Vector3().subVectors(scVel, moonVel).length().toFixed(2)} m/s`, "sys");
+                    resetOrbit(); break;
                 }
             }
 
-            // 물리 좌표를 시각적 좌표로 변환하여 메쉬에 적용
             moonMesh.position.copy(moonPos).multiplyScalar(VISUAL_SCALE);
             scMesh.position.copy(scPos).multiplyScalar(VISUAL_SCALE);
+            if (scVel.lengthSq() > 0.1) scMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), scVel.clone().normalize());
 
-            // 우주선 회전 방향 정렬
-            if (scVel.lengthSq() > 0.1) {
-                scMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), scVel.clone().normalize());
-            }
-
-            // 궤적 업데이트
-            trailPositions.push(scMesh.position.x, scMesh.position.y, scMesh.position.z);
-            if (trailPositions.length > 3000 * 3) trailPositions.splice(0, 3);
-            const posAttr = trailLine.geometry.attributes.position;
-            for (let i = 0; i < trailPositions.length / 3; i++) {
-                posAttr.setXYZ(i, trailPositions[i*3], trailPositions[i*3+1], trailPositions[i*3+2]);
-            }
-            trailLine.geometry.setDrawRange(0, trailPositions.length / 3);
-            posAttr.needsUpdate = true;
+            updateTrailAndUI();
         }
 
-        // === PART 9: 궤도 기동 수학 계산 (순행, 역행, 법선, 지름) ===
+        function resetOrbit() {
+            scPos.set(R_EARTH + 400000, 0, 0);
+            scVel.set(0, 0, Math.sqrt((G * M_EARTH) / (R_EARTH + 400000)));
+            trailPositionsArray.length = 0;
+        }
+
+        function updateTrailAndUI() {
+            trailPositionsArray.push(scMesh.position.x, scMesh.position.y, scMesh.position.z);
+            if (trailPositionsArray.length > 5000 * 3) trailPositionsArray.splice(0, 3);
+            const posAttr = orbitTrailLine.geometry.attributes.position;
+            for (let i = 0; i < trailPositionsArray.length / 3; i++) {
+                posAttr.setXYZ(i, trailPositionsArray[i*3], trailPositionsArray[i*3+1], trailPositionsArray[i*3+2]);
+            }
+            orbitTrailLine.geometry.setDrawRange(0, trailPositionsArray.length / 3);
+            posAttr.needsUpdate = true;
+
+            document.getElementById('met-display').value = new Date(totalElapsedSeconds * 1000).toISOString().substr(11, 8);
+        }
+
+        // === PART 11: 벡터 기동 수학 연산 ===
         function applyManeuver(type) {
-            let dv = parseFloat(document.getElementById('dv-input').value);
+            let dv = parseFloat(document.getElementById('val-dv').value);
             if (isNaN(dv)) return;
 
-            let direction = new THREE.Vector3();
             let prograde = scVel.clone().normalize();
+            let normal = new THREE.Vector3().crossVectors(scPos, scVel).normalize();
             let radial = scPos.clone().normalize();
-            let normal = new THREE.Vector3().crossVectors(scPos, scVel).normalize(); // 외적 사용
 
-            switch(type) {
-                case 'prograde': direction = prograde; break;
-                case 'retrograde': direction = prograde.clone().negate(); break;
-                case 'normal': direction = normal; break;
-                case 'radial': direction = radial; break;
-            }
+            let dir = new THREE.Vector3();
+            if (type === 'prograde') dir = prograde;
+            if (type === 'retrograde') dir = prograde.clone().negate();
+            if (type === 'normal') dir = normal;
+            if (type === 'radial') dir = radial;
 
-            scVel.addScaledVector(direction, dv);
-            addLog(`[Maneuver] ${type} 방향으로 ${dv} m/s 가속 인가됨.`, "msg-physics");
+            scVel.addScaledVector(dir, dv);
+            pushLog(`[Maneuver] ${type} 방향으로 ${dv} m/s 가속 인가됨.`, "phys");
         }
 
-        // === PART 10: 호만 전이 궤도(TLI) 물리 법칙 구현 ===
-        document.getElementById('btn-hohmann').addEventListener('click', () => {
+        // === PART 12: Vis-Viva 기반 호만 전이 (TLI) ===
+        document.getElementById('cmd-hohmann-transfer').addEventListener('click', () => {
             let r1 = scPos.length();
-            let r2 = DIST_MOON;
-            // Vis-Viva 방정식으로 전이 궤도에 필요한 근지점 속도 계산
-            let v_transfer = Math.sqrt(G * M_EARTH * ((2 / r1) - (1 / ((r1 + r2) / 2))));
-            let current_v = scVel.length();
-            let deltaV = v_transfer - current_v;
+            let r2 = ORBIT_RADIUS_MOON;
+            let v_target = Math.sqrt(G * M_EARTH * ((2 / r1) - (1 / ((r1 + r2) / 2))));
+            let deltaV = v_target - scVel.length();
 
-            // 순행(Prograde) 방향으로만 정확히 가속을 더해줌 (지구 충돌 방지)
-            let prograde = scVel.clone().normalize();
-            scVel.addScaledVector(prograde, deltaV);
-
-            addLog(`[TLI] 호만 전이 실행. 계산된 Δv: ${deltaV.toFixed(2)} m/s. 궤도가 달을 향해 확장됩니다.`, "msg-physics");
+            scVel.addScaledVector(scVel.clone().normalize(), deltaV);
+            pushLog(`[TLI] 호만 전이 실행. 필요 Δv: ${deltaV.toFixed(2)} m/s`, "phys");
         });
 
-        // === PART 11: 진짜 유전 알고리즘 (정직한 적합도 함수 사용) ===
-        document.getElementById('btn-ga').addEventListener('click', () => {
-            addLog("[GA] 물리 기반 자율 착륙 연산 시작... (가짜 종료 코드 제거됨)", "msg-system");
-            
-            // 난수를 활용해 매번 다른 초기 유전자 생성
-            let bestThrust = new THREE.Vector3((Math.random()-0.5)*10, (Math.random()-0.5)*10, (Math.random()-0.5)*10);
+        // === PART 13: 심층 유전 알고리즘 (깊이 확장판) ===
+        document.getElementById('cmd-deep-ga').addEventListener('click', () => {
+            pushLog("심층 유전 알고리즘 가동. 인구수: 100, 세대수: 150", "ga");
+
+            const popSize = 100; // 개체 수 대폭 증가
+            const dnaLength = 25; // 궤도 수정 분기점 증가
+            let population = Array.from({ length: popSize }, () => ({
+                dna: Array.from({ length: dnaLength }, () => new THREE.Vector3((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50)),
+                fitness: 0
+            }));
+
             let generation = 0;
-            
             let interval = setInterval(() => {
                 generation++;
-                // 실제 물리 시뮬레이션을 가상으로 돌려 거리를 계산
-                let testPos = scPos.clone();
-                let testVel = scVel.clone();
-                testVel.add(bestThrust); // 테스트 추력 인가
+
+                // 1. 적합도 평가 (가상 물리 엔진 구동)
+                population.forEach(ind => {
+                    let vPos = scPos.clone(), vVel = scVel.clone(), mPos = moonPos.clone(), mVel = moonVel.clone();
+                    for (let step = 0; step < dnaLength; step++) {
+                        let aMoon = mPos.clone().normalize().multiplyScalar(-(G * M_EARTH) / mPos.lengthSq());
+                        mVel.addScaledVector(aMoon, 120); mPos.addScaledVector(mVel, 120);
+
+                        let rScM = new THREE.Vector3().subVectors(vPos, mPos);
+                        let aM = rScM.normalize().multiplyScalar(-(G * M_MOON) / rScM.lengthSq());
+                        vVel.addScaledVector(new THREE.Vector3().addVectors(aM, ind.dna[step]), 120);
+                        vPos.addScaledVector(vVel, 120);
+                    }
+                    let dist = new THREE.Vector3().subVectors(vPos, mPos).length() - R_MOON;
+                    // 물리 기반 정직한 적합도 함수
+                    ind.fitness = 1 / (Math.max(0, dist) + 1); 
+                });
+
+                population.sort((a, b) => b.fitness - a.fitness);
+                if (generation % 10 === 0) pushLog(`세대 [${generation}/150] 최고 적합도: ${population[0].fitness.toExponential(4)}`, "ga");
+
+                // 2. 세대 교체 (엘리트 보존 + 교차 + 돌연변이)
+                let newPop = population.slice(0, 15).map(ind => ({ dna: ind.dna.map(v => v.clone()), fitness: 0 })); // 엘리트 15%
                 
-                // 가상 물리 시뮬레이션 (단순화)
-                let rMoonSq = moonPos.lengthSq();
-                let aMoonSc = new THREE.Vector3().subVectors(testPos, moonPos).normalize().multiplyScalar(-G * M_MOON / rMoonSq);
-                testVel.addScaledVector(aMoonSc, 3600); // 1시간 후
-                testPos.addScaledVector(testVel, 3600);
-                
-                let distToMoon = new THREE.Vector3().subVectors(testPos, moonPos).length() - R_MOON;
-                
-                // 적합도 평가 (거리가 가까울수록 좋음)
-                let fitness = 1 / (distToMoon + 1); 
-                
-                if (generation % 10 === 0) {
-                    addLog(`GA 세대 ${generation} - 적합도: ${fitness.toExponential(2)}`, "msg-physics");
+                while(newPop.length < popSize) {
+                    let p1 = population[Math.floor(Math.random() * 30)].dna;
+                    let p2 = population[Math.floor(Math.random() * 30)].dna;
+                    let childDna = p1.map((v, i) => {
+                        let gene = Math.random() > 0.5 ? v.clone() : p2[i].clone();
+                        if (Math.random() < 0.2) gene.add(new THREE.Vector3((Math.random()-0.5)*20, (Math.random()-0.5)*20, (Math.random()-0.5)*20)); // 돌연변이 20%
+                        return gene;
+                    });
+                    newPop.push({ dna: childDna, fitness: 0 });
                 }
+                population = newPop;
 
-                // 돌연변이 발생 (실제 물리적 탐색)
-                bestThrust.add(new THREE.Vector3((Math.random()-0.5)*2, (Math.random()-0.5)*2, (Math.random()-0.5)*2));
-
-                // 임의의 종료가 아닌, 달 표면에 닿을 수 있는 궤적이 발견되면 종료
-                if (distToMoon < R_MOON * 2 || generation > 100) { 
+                if (generation >= 150 || population[0].fitness > 0.9) {
                     clearInterval(interval);
-                    scVel.add(bestThrust); // 찾아낸 최적의 추력을 실제 우주선에 적용
-                    addLog(`[GA 종료] 최적 궤적 도출 완료. 가속 인가됨.`, "msg-system");
+                    scVel.add(population[0].dna[0]); // 최적 가속 인가
+                    pushLog("GA 최적화 완료. 최적 궤도 벡터 인가됨.", "ga");
                 }
-            }, 50);
+            }, 30); // 브라우저 스레드 분산을 위한 비동기 처리
         });
 
-        // === PART 12: 이벤트 리스너 및 렌더링 루프 ===
-        document.getElementById('btn-prograde').addEventListener('click', () => applyManeuver('prograde'));
-        document.getElementById('btn-retrograde').addEventListener('click', () => applyManeuver('retrograde'));
-        document.getElementById('btn-normal').addEventListener('click', () => applyManeuver('normal'));
-        document.getElementById('btn-radial').addEventListener('click', () => applyManeuver('radial'));
+        // === PART 14: 이벤트 바인딩 및 렌더링 루프 ===
+        document.getElementById('cmd-prograde').addEventListener('click', () => applyManeuver('prograde'));
+        document.getElementById('cmd-retrograde').addEventListener('click', () => applyManeuver('retrograde'));
+        document.getElementById('cmd-normal').addEventListener('click', () => applyManeuver('normal'));
+        document.getElementById('cmd-radial').addEventListener('click', () => applyManeuver('radial'));
 
         function animate() {
             requestAnimationFrame(animate);
             updatePhysics();
-            logFlightData();
+            recordTelemetry();
             controls.update();
             renderer.render(scene, camera);
         }
 
         initGraphics();
-        addLog("시스템 부팅 완료. 정상 궤도 진입 대기 중.", "msg-system");
+        pushLog("CELESTIUM 시스템 부팅 완료.", "sys");
         animate();
     </script>
 </body>
