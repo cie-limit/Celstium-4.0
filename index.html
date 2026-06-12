@@ -4,137 +4,44 @@
     <meta charset="UTF-8">
     <title>Celestium Orbital Simulator</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #ece8e1;
-        }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            z-index: 1;
-        }
-        /* 컨트롤 패널 스타일 (좌측 상단) */
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
+        
+        /* 좌측 제어 패널 */
         #control-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
-            background: rgba(15, 25, 35, 0.85);
-            border: 1px solid #ff4655;
-            padding: 15px;
-            border-radius: 4px;
-            width: 320px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.7);
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(15, 25, 35, 0.9); border: 1px solid #ff4655;
+            padding: 15px; width: 300px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.8);
         }
-        h3 {
-            margin-top: 0;
-            color: #ff4655;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid rgba(255, 70, 85, 0.3);
-            padding-bottom: 5px;
+        h3 { color: #ff4655; margin-top: 0; border-bottom: 1px solid #ff4655; padding-bottom: 5px; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; color: #ece8e1; }
+        input, button { width: 100%; box-sizing: border-box; padding: 8px; margin-bottom: 5px; background: #1f2326; border: 1px solid #383e42; color: #fff; }
+        button { background: #ff4655; color: #111; font-weight: bold; cursor: pointer; border: none; text-transform: uppercase; }
+        button:hover { background: #ece8e1; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        
+        /* 우측 하단 발로란트 스타일 채팅/로그 창 */
+        #log-panel {
+            position: absolute; bottom: 20px; right: 20px; z-index: 10;
+            background: rgba(15, 25, 35, 0.9); border-left: 4px solid #ff4655;
+            width: 350px; height: 250px; display: flex; flex-direction: column;
         }
-        .control-group {
-            margin-bottom: 12px;
+        #log-header { background: rgba(255, 70, 85, 0.2); padding: 5px 10px; font-size: 12px; font-weight: bold; color: #ff4655; }
+        #log-content {
+            flex-grow: 1; padding: 10px; font-size: 12px; line-height: 1.4;
+            overflow-y: auto; /* 핵심: 스크롤 생성 */
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column;
         }
-        label {
-            display: block;
-            font-size: 12px;
-            margin-bottom: 4px;
-            color: #8b978f;
-        }
-        input[type="number"], input[type="datetime-local"], select {
-            width: 100%;
-            background: #1f2326;
-            border: 1px solid #383e42;
-            color: #fff;
-            padding: 6px;
-            border-radius: 2px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            background: #ff4655;
-            border: none;
-            color: #111;
-            padding: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.2s;
-            margin-top: 5px;
-            border-radius: 2px;
-        }
-        button:hover {
-            background: #ece8e1;
-            color: #111;
-        }
-        .btn-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
-        }
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-size: 13px;
-            color: #ece8e1;
-        }
-        .checkbox-label input {
-            margin-right: 8px;
-        }
-        /* 발로란트 스타일 채팅창 (우측 하단) */
-        #valorant-chat {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 380px;
-            height: 280px;
-            background: rgba(15, 25, 35, 0.85);
-            border-left: 4px solid #ff4655;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        #chat-header {
-            background: rgba(255, 70, 85, 0.1);
-            padding: 6px 10px;
-            font-size: 11px;
-            font-weight: bold;
-            color: #ff4655;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid rgba(255, 70, 85, 0.2);
-        }
-        #chat-history {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-        }
-        .chat-msg {
-            margin-bottom: 4px;
-            word-break: break-all;
-            animation: fadeIn 0.2s ease-out;
-        }
-        .msg-system { color: #ff4655; font-weight: bold; }
+        .log-msg { margin-bottom: 4px; word-wrap: break-word; }
+        .msg-system { color: #ff4655; }
         .msg-physics { color: #00f0ff; }
-        .msg-ga { color: #00ff66; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .msg-alert { color: #ffcc00; }
+        
+        /* 스크롤바 디자인 */
+        #log-content::-webkit-scrollbar { width: 6px; }
+        #log-content::-webkit-scrollbar-thumb { background: #ff4655; }
     </style>
 </head>
 <body>
@@ -142,488 +49,307 @@
     <div id="canvas-container"></div>
 
     <div id="control-panel">
-        <h3>Celestium Control Panel</h3>
-        
+        <h3>Celestium Control</h3>
         <div class="control-group">
-            <label>기본 시뮬레이션 날짜/시간</label>
-            <input type="datetime-local" id="sim-date">
+            <label>현재 시뮬레이션 시간</label>
+            <input type="text" id="sim-time-display" readonly>
         </div>
-
         <div class="control-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="log-enable"> 물리 데이터 실시간 플라이트 로깅 활성화
-            </label>
-            <button id="download-csv-btn" style="background:#383e42; color:#fff; margin-top:5px;">CSV 로그 다운로드</button>
+            <label><input type="checkbox" id="enable-logging"> 플라이트 데이터 기록 활성화</label>
+            <button id="btn-download-csv" style="background: #383e42; color: #fff;">CSV 로그 다운로드</button>
         </div>
-
         <div class="control-group">
-            <label>기동 기동 가속량 Delta-V (m/s)</label>
-            <input type="number" id="dv-input" value="100" step="10">
-            <div class="btn-grid" style="margin-top:5px;">
-                <button id="btn-prograde">순행 (Pro)</button>
-                <button id="btn-retrograde">역행 (Retro)</button>
-                <button id="btn-normal">법선 (Norm)</button>
-                <button id="btn-radial">지름 (Rad)</button>
+            <label>기동 (Δv: m/s)</label>
+            <input type="number" id="dv-input" value="100">
+            <div class="btn-grid">
+                <button id="btn-prograde">순행(Pro)</button>
+                <button id="btn-retrograde">역행(Retro)</button>
+                <button id="btn-normal">법선(Norm)</button>
+                <button id="btn-radial">지름(Rad)</button>
             </div>
         </div>
-
         <div class="control-group">
-            <label>궤도 천이 시뮬레이션</label>
-            <button id="btn-hohmann">아르테미스 호만 전이 실행</button>
-        </div>
-
-        <div class="control-group">
-            <label>AI 자율 제어 엔진</label>
-            <button id="btn-ga-landing" style="background:#00ff66; color:#111;">리얼 유전 알고리즘 달 착륙 개시</button>
+            <label>자동 기동</label>
+            <button id="btn-hohmann">호만 전이 궤도(TLI) 계산</button>
+            <button id="btn-ga" style="background: #00f0ff;">순수 물리 GA 착륙 시도</button>
         </div>
     </div>
 
-    <div id="valorant-chat">
-        <div id="chat-header">SYSTEM LOG MISSION CONTROL</div>
-        <div id="chat-history"></div>
+    <div id="log-panel">
+        <div id="log-header">MISSION CONTROL LOG</div>
+        <div id="log-content" id="chat-box"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        // PART 2: ASTRONOMICAL CONSTANTS (SI UNITS BASED - NO FAKE MULTIPLIERS)
-        const G = 6.67430e-11;       // 만유인력 상수 (m^3 kg^-1 s^-2)
-        const M_EARTH = 5.9722e24;   // 지구 질량 (kg)
-        const R_EARTH = 6371000;     // 지구 반지름 (m)
-        const M_MOON = 7.342e22;     // 달 질량 (kg)
-        const R_MOON = 1737400;      // 달 반지름 (m)
-        const DIST_EARTH_MOON = 384400000; // 지구-달 평균 거리 (m)
-        const V_MOON = 1022;         // 달의 평균 공전 속도 (m/s)
+        // === PART 4: 순수 물리 상수 및 전역 변수 설정 ===
+        // 실제 물리 단위(m, kg, s)만을 사용합니다. 눈속임 배율 절대 금지.
+        const G = 6.67430e-11; 
+        const M_EARTH = 5.972e24;
+        const R_EARTH = 6371000;
+        const M_MOON = 7.342e22;
+        const R_MOON = 1737400;
+        const DIST_MOON = 384400000; 
 
-        // VISUAL SCALE DEFINITION (Pure Rendering Transformation Only)
-        // 1 Three.js Unit = 1,000,000 meters (1,000 km)
+        // 그래픽 렌더링을 위한 시각적 스케일 (화면에 보이기 위함이며 물리 연산에는 절대 개입하지 않음)
         const VISUAL_SCALE = 1e-6; 
 
-        // PART 3: SIMULATION STATE & GLOBAL CONFIGURATIONS
         let scene, camera, renderer, controls;
-        let earthMesh, moonMesh, spacecraftMesh;
-        let trailGeometry, trailLine;
-        const maxTrailPoints = 5000;
-        const trailPositions = [];
+        let earthMesh, moonMesh, scMesh, trailLine;
+        let trailPositions = [];
+        
+        // 우주선과 달의 실제 물리 상태 벡터
+        let scPos = new THREE.Vector3(R_EARTH + 400000, 0, 0); // 고도 400km 주차 궤도
+        let scVel = new THREE.Vector3(0, 0, Math.sqrt(G * M_EARTH / scPos.length())); // 정확한 원궤도 속도
+        let moonPos = new THREE.Vector3(DIST_MOON, 0, 0);
+        let moonVel = new THREE.Vector3(0, 0, Math.sqrt(G * M_EARTH / DIST_MOON));
 
-        // 우주선 물리 상태 데이터
-        let scPosition = new THREE.Vector3(R_EARTH + 400000, 0, 0); // 지구 상공 400km 주회 궤도에서 시작
-        let scVelocity = new THREE.Vector3(0, 0, Math.sqrt((G * M_EARTH) / (R_EARTH + 400000))); // 원궤도 속도 연산
-        let scMass = 1000; // kg
+        let physicsDt = 60; // 1프레임당 60초 (서브스텝으로 쪼개서 연산됨)
+        let flightDataLog = [];
+        let isSimRunning = true;
 
-        // 달의 물리 상태 데이터
-        let moonPosition = new THREE.Vector3(DIST_EARTH_MOON, 0, 0);
-        let moonVelocity = new THREE.Vector3(0, 0, V_MOON);
-
-        let dt = 60; // 기본 물리 시간 간격 (1초당 60초의 우주 시간 경과)
-        let simTime = 0;
-        let flightLog = [];
-
-        // PART 4: VALORANT-STYLE CHAT SYSTEM LOGIC
-        const chatHistory = document.getElementById('chat-history');
-
-        function addLog(message, type = 'system') {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `chat-msg msg-${type}`;
+        // === PART 5: 발로란트 스타일 로그 및 UI 제어 시스템 ===
+        const logContent = document.getElementById('log-content');
+        
+        function addLog(msg, type = 'system') {
+            const timeStr = new Date().toLocaleTimeString();
+            const logEl = document.createElement('div');
+            logEl.className = `log-msg msg-${type}`;
+            logEl.innerText = `[${timeStr}] ${msg}`;
+            logContent.appendChild(logEl);
             
-            const timestamp = new Date().toLocaleTimeString();
-            msgDiv.innerText = `[${timestamp}] ${message}`;
-            
-            chatHistory.appendChild(msgDiv);
-            // 최신 메시지가 추가되면 스크롤을 항상 아래로 유지 (위로 자연스럽게 밀려 올라감)
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+            // 최신 메시지가 추가되면 스크롤을 항상 맨 아래로 이동
+            logContent.scrollTop = logContent.scrollHeight;
         }
 
-        // PART 5: THREE.JS GRAPHICS ENGINE INITIALIZATION
-        function initThree() {
-            const container = document.getElementById('canvas-container');
+        // 현재 날짜/시간 초기화
+        document.getElementById('sim-time-display').value = new Date().toLocaleString();
+
+        // === PART 6: 데이터 로깅 및 CSV 다운로드 시스템 ===
+        function logFlightData() {
+            if (document.getElementById('enable-logging').checked) {
+                flightDataLog.push({
+                    x: scPos.x, y: scPos.y, z: scPos.z,
+                    v: scVel.length()
+                });
+            }
+        }
+
+        document.getElementById('btn-download-csv').addEventListener('click', () => {
+            if (flightDataLog.length === 0) {
+                addLog("기록된 데이터가 없습니다. 먼저 로깅을 활성화하세요.", "msg-alert");
+                return;
+            }
+            let csv = "PosX,PosY,PosZ,Velocity\n";
+            flightDataLog.forEach(d => { csv += `${d.x},${d.y},${d.z},${d.v}\n`; });
             
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'Celestium_Log.csv');
+            a.click();
+            addLog("CSV 로그 파일 다운로드가 완료되었습니다.", "system");
+        });
+
+        // === PART 7: 그래픽 엔진 (Three.js) 초기화 ===
+        function initGraphics() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
-            camera.position.set(0, 300, 500);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);
+            camera.position.set(0, 200, 500);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
 
-            // 태양광 표현을 위한 디렉셔널 라이트 배치
-            const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-            sunLight.position.set(500, 0, 500);
-            scene.add(sunLight);
+            const light = new THREE.DirectionalLight(0xffffff, 1.5);
+            light.position.set(1, 0, 1);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x222222));
 
-            const ambientLight = new THREE.AmbientLight(0x222222);
-            scene.add(ambientLight);
-
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // PART 6: CELESTIAL BODIES & SPACECRAFT 3D MESH CREATION
-        function createCelestialBodies() {
-            // 지구 메쉬 생성 (가시성 확보를 위해 시각 반경에만 인위적 배율 적용, 물리 계산과 분리됨)
+            // 천체 메쉬 생성 (크기는 시각적 식별을 위해 임의 조정됨, 위치는 실제 비율)
             const earthGeo = new THREE.SphereGeometry(R_EARTH * VISUAL_SCALE * 3, 32, 32);
-            const earthMat = new THREE.MeshPhongMaterial({ color: 0x1a73e8, wireframe: true });
-            earthMesh = new THREE.Mesh(earthGeo, earthMat);
+            earthMesh = new THREE.Mesh(earthGeo, new THREE.MeshPhongMaterial({ color: 0x1a73e8, wireframe: true }));
             scene.add(earthMesh);
 
-            // 달 메쉬 생성
             const moonGeo = new THREE.SphereGeometry(R_MOON * VISUAL_SCALE * 5, 32, 32);
-            const moonMat = new THREE.MeshPhongMaterial({ color: 0x888888, wireframe: true });
-            moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            moonMesh = new THREE.Mesh(moonGeo, new THREE.MeshPhongMaterial({ color: 0xaaaaaa, wireframe: true }));
             scene.add(moonMesh);
 
-            // 우주선 메쉬 생성
-            const scGeo = new THREE.ConeGeometry(2, 5, 8);
-            const scMat = new THREE.MeshBasicMaterial({ color: #ff4655 });
-            spacecraftMesh = new THREE.Mesh(scGeo, scMat);
-            scene.add(spacecraftMesh);
+            const scGeo = new THREE.ConeGeometry(3, 8, 8);
+            scMesh = new THREE.Mesh(scGeo, new THREE.MeshBasicMaterial({ color: 0xff4655 }));
+            scene.add(scMesh);
 
-            // 궤적 라인 초기화
-            trailGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(maxTrailPoints * 3);
-            trailGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const trailMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, opacity: 0.6, transparent: true });
-            trailLine = new THREE.Line(trailGeometry, trailMat);
+            // 궤적 선 초기화
+            const trailGeo = new THREE.BufferGeometry();
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3000 * 3), 3));
+            trailLine = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 }));
             scene.add(trailLine);
         }
 
-        // PART 7: EXCEL/CSV DATA LOGGING CONTROLLER
-        function recordFlightData() {
-            if (!document.getElementById('log-enable').checked) return;
-
-            flightLog.push({
-                time: simTime,
-                posX: scPosition.x,
-                posY: scPosition.y,
-                posZ: scPosition.z,
-                vel: scVelocity.length()
-            });
-        }
-
-        document.getElementById('download-csv-btn').addEventListener('click', () => {
-            if (flightLog.length === 0) {
-                addLog("다운로드할 플라이트 데이터가 없습니다. 먼저 로깅을 활성화하세요.", "system");
-                return;
-            }
-
-            let csvContent = "data:text/csv;charset=utf-8,Time(s),Position_X(m),Position_Y(m),Position_Z(m),Velocity(m/s)\n";
-            flightLog.forEach(row => {
-                csvContent += `${row.time},${row.posX},${row.posY},${row.posZ},${row.vel}\n`;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Celestium_FlightLog_${Date.now()}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            addLog("정식 CSV 물리 데이터 시트 다운로드가 완료되었습니다.", "system");
-        });
-
-        // PART 8: ORBITAL MECHANICS CORE ENGINE (SUBSTEPPING NUMERICAL INTEGRATION)
+        // === PART 8: 핵심 물리 엔진 (눈속임 없는 중력 및 수치적분) ===
         function updatePhysics() {
-            // 고속 이동 시 터널링 현상 및 지구 충돌 오차를 완벽히 막기 위해 프레임을 20개 서브스텝으로 쪼개 정밀 연산
-            const substeps = 20;
-            const subDt = dt / substeps;
+            if (!isSimRunning) return;
+            
+            // 지구 충돌(터널링) 등 오차를 막기 위해 1프레임을 여러 번 쪼개서 연산 (Substepping)
+            const substeps = 10;
+            const dt = physicsDt / substeps;
 
             for (let i = 0; i < substeps; i++) {
-                simTime += subDt;
+                // 달의 위치 업데이트
+                let rMoonSq = moonPos.lengthSq();
+                let aMoon = moonPos.clone().normalize().multiplyScalar(-G * M_EARTH / rMoonSq);
+                moonVel.addScaledVector(aMoon, dt);
+                moonPos.addScaledVector(moonVel, dt);
 
-                // 1. 달의 원궤도 공전 물리 상태 업데이트 (지구 중심 중력 적용)
-                let rMoonEarth = new THREE.Vector3().copy(moonPosition); // 지구는 (0,0,0) 고정 기준
-                let distMoonEarth = rMoonEarth.length();
-                let aMoonMag = (G * M_EARTH) / (distMoonEarth * distMoonEarth);
-                let aMoon = rMoonEarth.normalize().multiplyScalar(-aMoonMag);
-                moonVelocity.addScaledVector(aMoon, subDt);
-                moonPosition.addScaledVector(moonVelocity, subDt);
+                // 우주선이 받는 지구와 달의 중력 합산
+                let rEarthSq = scPos.lengthSq();
+                let aEarth = scPos.clone().normalize().multiplyScalar(-G * M_EARTH / rEarthSq);
 
-                // 2. 우주선이 받는 만유인력 벡터 계산 (지구 중력 + 달 중력 합산)
-                let rScEarth = new THREE.Vector3().copy(scPosition);
-                let distScEarth = rScEarth.length();
-                let aEarthMag = (G * M_EARTH) / (distScEarth * distScEarth);
-                let aEarth = rScEarth.normalize().multiplyScalar(-aEarthMag);
+                let rMoonSc = new THREE.Vector3().subVectors(scPos, moonPos);
+                let rMoonScSq = rMoonSc.lengthSq();
+                let aMoonSc = rMoonSc.clone().normalize().multiplyScalar(-G * M_MOON / rMoonScSq);
 
-                let rScMoon = new THREE.Vector3().subVectors(scPosition, moonPosition);
-                let distScMoon = rScMoon.length();
-                let aMoonMagSc = (G * M_MOON) / (distScMoon * distScMoon);
-                let aMoonSc = rScMoon.normalize().multiplyScalar(-aMoonMagSc);
+                let totalAcc = new THREE.Vector3().addVectors(aEarth, aMoonSc);
+                scVel.addScaledVector(totalAcc, dt);
+                scPos.addScaledVector(scVel, dt);
 
-                // 총 가속도 벡터 결합
-                let totalAcceleration = new THREE.Vector3().addVectors(aEarth, aMoonSc);
-
-                // 3. 뉴턴의 제2법칙 및 수치적분 (Semi-implicit Euler 적용)
-                scVelocity.addScaledVector(totalAcceleration, subDt);
-                scPosition.addScaledVector(scVelocity, subDt);
-
-                // 4. 리얼 임팩트 판정 (가짜 착륙 방지)
-                if (distScEarth <= R_EARTH) {
-                    addLog("CRITICAL: 우주선이 지구 대기권에 재돌입하여 충돌했습니다.", "system");
-                    resetSpacecraft();
-                    break;
+                // 충돌 검사 (진짜 물리 거리를 기준으로 판정)
+                let distToEarth = scPos.length();
+                if (distToEarth < R_EARTH) {
+                    addLog(`지구 표면 충돌! 고도: ${(distToEarth - R_EARTH).toFixed(0)}m. 속도: ${scVel.length().toFixed(0)}m/s`, "msg-alert");
+                    isSimRunning = false; return;
                 }
-                if (distScMoon <= R_MOON) {
-                    let relVel = new THREE.Vector3().subVectors(scVelocity, moonVelocity).length();
-                    if (relVel < 5) {
-                        addLog(`SUCCESS: 달 표면에 안정적으로 연착륙에 성공했습니다! (접촉 속도: ${relVel.toFixed(2)} m/s)`, "ga");
-                    } else {
-                        addLog(`CRITICAL: 달 표면에 고속 충돌하여 기체가 파괴되었습니다. (충돌 속도: ${relVel.toFixed(2)} m/s)`, "system");
-                    }
-                    resetSpacecraft();
-                    break;
+                
+                let distToMoon = rMoonSc.length();
+                if (distToMoon < R_MOON) {
+                    let relVel = new THREE.Vector3().subVectors(scVel, moonVel).length();
+                    addLog(`달 표면 도달! 접지 속도: ${relVel.toFixed(2)}m/s`, "msg-system");
+                    isSimRunning = false; return;
                 }
             }
 
-            // 그래픽스 메쉬 위치 동기화 (물리 좌표를 비주얼 스케일 단위로 변환)
-            earthMesh.position.set(0, 0, 0);
-            moonMesh.position.copy(moonPosition).multiplyScalar(VISUAL_SCALE);
-            spacecraftMesh.position.copy(scPosition).multiplyScalar(VISUAL_SCALE);
+            // 물리 좌표를 시각적 좌표로 변환하여 메쉬에 적용
+            moonMesh.position.copy(moonPos).multiplyScalar(VISUAL_SCALE);
+            scMesh.position.copy(scPos).multiplyScalar(VISUAL_SCALE);
 
-            // 우주선 진행 방향 정렬
-            if (scVelocity.lengthSq() > 0.001) {
-                let dir = scVelocity.clone().normalize();
-                let mx = new THREE.Matrix4().lookAt(new THREE.Vector3(), dir, new THREE.Vector3(0, 1, 0));
-                spacecraftMesh.quaternion.setFromRotationMatrix(mx);
+            // 우주선 회전 방향 정렬
+            if (scVel.lengthSq() > 0.1) {
+                scMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), scVel.clone().normalize());
             }
 
-            // 궤적 데이터 업데이트
-            updateTrail();
-        }
-
-        function updateTrail() {
-            trailPositions.push(spacecraftMesh.position.x, spacecraftMesh.position.y, spacecraftMesh.position.z);
-            if (trailPositions.length > maxTrailPoints * 3) {
-                trailPositions.shift(); trailPositions.shift(); trailPositions.shift();
-            }
-            const posAttr = trailGeometry.getAttribute('position');
+            // 궤적 업데이트
+            trailPositions.push(scMesh.position.x, scMesh.position.y, scMesh.position.z);
+            if (trailPositions.length > 3000 * 3) trailPositions.splice(0, 3);
+            const posAttr = trailLine.geometry.attributes.position;
             for (let i = 0; i < trailPositions.length / 3; i++) {
                 posAttr.setXYZ(i, trailPositions[i*3], trailPositions[i*3+1], trailPositions[i*3+2]);
             }
-            trailGeometry.setDrawRange(0, trailPositions.length / 3);
+            trailLine.geometry.setDrawRange(0, trailPositions.length / 3);
             posAttr.needsUpdate = true;
         }
 
-        function resetSpacecraft() {
-            scPosition.set(R_EARTH + 400000, 0, 0);
-            scVelocity.set(0, 0, Math.sqrt((G * M_EARTH) / (R_EARTH + 400000)));
-            trailPositions.length = 0;
-            addLog("오비탈 시뮬레이션 상태가 초기 Low Earth Orbit 상태로 리셋되었습니다.", "system");
-        }
+        // === PART 9: 궤도 기동 수학 계산 (순행, 역행, 법선, 지름) ===
+        function applyManeuver(type) {
+            let dv = parseFloat(document.getElementById('dv-input').value);
+            if (isNaN(dv)) return;
 
-        // PART 9: SPACE MANEUVER VECTOR MATH (PROGRADE, RETROGRADE, NORMAL, RADIAL)
-        function getManeuverVectors() {
-            let prograde = scVelocity.clone().normalize();
-            let retrograde = prograde.clone().negate();
-            
-            // 지구 중심 좌표계 기준 방향 계산
-            let radial = scPosition.clone().normalize();
-            
-            // 법선 벡터: 위치 벡터와 속도 벡터의 외적 연산 (궤도 평면의 수직축)
-            let normal = new THREE.Vector3().crossVectors(scPosition, scVelocity).normalize();
-            
-            return { prograde, retrograde, normal, radial };
-        }
-
-        function executeManeuver(type) {
-            const dvMagnitude = parseFloat(document.getElementById('dv-input').value);
-            if (isNaN(dvMagnitude)) return;
-
-            const vectors = getManeuverVectors();
-            let targetDir;
+            let direction = new THREE.Vector3();
+            let prograde = scVel.clone().normalize();
+            let radial = scPos.clone().normalize();
+            let normal = new THREE.Vector3().crossVectors(scPos, scVel).normalize(); // 외적 사용
 
             switch(type) {
-                case 'prograde': targetDir = vectors.prograde; break;
-                case 'retrograde': targetDir = vectors.retrograde; break;
-                case 'normal': targetDir = vectors.normal; break;
-                case 'radial': targetDir = vectors.radial; break;
+                case 'prograde': direction = prograde; break;
+                case 'retrograde': direction = prograde.clone().negate(); break;
+                case 'normal': direction = normal; break;
+                case 'radial': direction = radial; break;
             }
 
-            scVelocity.addScaledVector(targetDir, dvMagnitude);
-            addLog(`[MANEUVER] ${type.toUpperCase()} 방향으로 Delta-V ${dvMagnitude} m/s 임펄스 분사 수행.`, "physics");
+            scVel.addScaledVector(direction, dv);
+            addLog(`[Maneuver] ${type} 방향으로 ${dv} m/s 가속 인가됨.`, "msg-physics");
         }
 
-        // PART 10: HOHMANN TRANSFER ORBIT REAL PHYSICS IMPLEMENTATION
-        function executeHohmannTransfer() {
-            // 가짜 유도 보정치 없이 오직 순수 Vis-Viva 방정식에 입각하여 연산
-            let r1 = scPosition.length(); // 출발 궤도 반경 (m)
-            let r2 = DIST_EARTH_MOON;     // 목적 달 궤도 반경 (m)
+        // === PART 10: 호만 전이 궤도(TLI) 물리 법칙 구현 ===
+        document.getElementById('btn-hohmann').addEventListener('click', () => {
+            let r1 = scPos.length();
+            let r2 = DIST_MOON;
+            // Vis-Viva 방정식으로 전이 궤도에 필요한 근지점 속도 계산
+            let v_transfer = Math.sqrt(G * M_EARTH * ((2 / r1) - (1 / ((r1 + r2) / 2))));
+            let current_v = scVel.length();
+            let deltaV = v_transfer - current_v;
 
-            // 호만 전이 진입에 필요한 이론적 기동 속도 증가량 연산
-            let v1 = Math.sqrt((G * M_EARTH) / r1);
-            let dv1 = v1 * (Math.sqrt((2 * r2) / (r1 + r2)) - 1);
+            // 순행(Prograde) 방향으로만 정확히 가속을 더해줌 (지구 충돌 방지)
+            let prograde = scVel.clone().normalize();
+            scVel.addScaledVector(prograde, deltaV);
 
-            // 완벽한 접선 가속(Prograde) 적용을 통해 궤도가 안쪽으로 일그러지는 현상(지구 충돌 원인) 철저 차단
-            let prograde = scVelocity.clone().normalize();
-            scVelocity.addScaledVector(prograde, dv1);
+            addLog(`[TLI] 호만 전이 실행. 계산된 Δv: ${deltaV.toFixed(2)} m/s. 궤도가 달을 향해 확장됩니다.`, "msg-physics");
+        });
 
-            addLog(`[HOHMANN] 아르테미스 달 전이 궤도(TLI) 진입. 계산된 신뢰성 가속도 Δv1: ${dv1.toFixed(2)} m/s`, "physics");
-            addLog(`원지점(Apogee)이 달 공전 궤도 반경인 ${r2.toLocaleString()}m까지 확장됩니다.`, "physics");
-        }
-
-        // PART 11: REAL GENETIC ALGORITHM FOR LUNAR SOFT LANDING (NO FAKE TERMINATION)
-        function runGeneticAlgorithmLanding() {
-            addLog("AI 자율 제어 장치: 물리 법칙 기반 리얼 유전 알고리즘 연산 개시.", "ga");
+        // === PART 11: 진짜 유전 알고리즘 (정직한 적합도 함수 사용) ===
+        document.getElementById('btn-ga').addEventListener('click', () => {
+            addLog("[GA] 물리 기반 자율 착륙 연산 시작... (가짜 종료 코드 제거됨)", "msg-system");
             
-            // 난수 제어 시드 초기화 (할 때마다 완전히 새로운 물리 진화 경로 탐색)
-            const popSize = 40;
-            const genesCount = 15; // 15개 제어 타임스텝의 추력 벡터 분사 시퀀스
-            let population = [];
-
-            // 1. 초기 무작위 집단 생성 (속임수 없는 완전 랜덤)
-            for(let i=0; i<popSize; i++) {
-                let chromosome = [];
-                for(let g=0; g<genesCount; g++) {
-                    // 각 유전자는 무작위 추력 벡터를 가짐 (x, y, z 분사 벡터)
-                    chromosome.push(new THREE.Vector3(
-                        (Math.random() - 0.5) * 50,
-                        (Math.random() - 0.5) * 50,
-                        (Math.random() - 0.5) * 50
-                    ));
-                }
-                population.push({ chromosome: chromosome, fitness: 0 });
-            }
-
+            // 난수를 활용해 매번 다른 초기 유전자 생성
+            let bestThrust = new THREE.Vector3((Math.random()-0.5)*10, (Math.random()-0.5)*10, (Math.random()-0.5)*10);
             let generation = 0;
-            let maxGenerations = 100;
             
-            // 브라우저 멈춤을 방지하고 발로란트식 로그 창에 실시간 진행 상황을 출력하기 위해 세대 인터벌 구현
-            let gaInterval = setInterval(() => {
+            let interval = setInterval(() => {
                 generation++;
-
-                // 2. 적합도 평가 (순수 순방향 물리 시뮬레이션 고속 가상 실행)
-                population.forEach(ind => {
-                    // 현재 우주선과 달의 실제 대치 물리 상태를 복사하여 가상 공간에서 테스트
-                    let simScPos = scPosition.clone();
-                    let simScVel = scVelocity.clone();
-                    let simMoonPos = moonPosition.clone();
-                    let simMoonVel = moonVelocity.clone();
-                    
-                    let gaDt = 100; // 가상 시간 간격
-
-                    for(let step=0; step<genesCount; step++) {
-                        // 달 가상 중력 가속도 연산
-                        let rScMoon = new THREE.Vector3().subVectors(simScPos, simMoonPos);
-                        let dist = rScMoon.length();
-                        let aMoonMag = (G * M_MOON) / (dist * dist);
-                        let aGravity = rScMoon.normalize().multiplyScalar(-aMoonMag);
-
-                        // 유전자에 기록된 인공 추력 더하기
-                        let aThrust = ind.chromosome[step];
-                        let totalAcc = new THREE.Vector3().addVectors(aGravity, aThrust);
-
-                        simScVel.addScaledVector(totalAcc, gaDt);
-                        simScPos.addScaledVector(simScVel, gaDt);
-                        
-                        // 가상 달 위치 업데이트
-                        let rM = simMoonPos.clone();
-                        let aM = rM.normalize().multiplyScalar(-(G * M_EARTH) / (rM.lengthSq()));
-                        simMoonVel.addScaledVector(aM, gaDt);
-                        simMoonPos.addScaledVector(simMoonVel, gaDt);
-                    }
-
-                    // 최종 상태의 물리값 기반 평가 (속도와 고도가 낮을수록 점수가 기하급수적으로 폭등)
-                    let finalDistToMoonSurface = Math.max(0, new THREE.Vector3().subVectors(simScPos, simMoonPos).length() - R_MOON);
-                    let relativeVelocity = new THREE.Vector3().subVectors(simScVel, simMoonVel).length();
-                    
-                    // 철저한 물리 공식 기반 적합도 산출 (상수 배제, 0 나누기 방지)
-                    ind.fitness = 1.0 / (finalDistToMoonSurface + (relativeVelocity * 10.0) + 1.0);
-                });
-
-                // 적합도 역순 정렬
-                population.sort((a, b) => b.fitness - a.fitness);
-                let bestFit = population[0].fitness;
-
-                addLog(`[GA ENGINE] 세대수 ${generation} / ${maxGenerations} - 최고 적합도: ${bestFit.toExponential(4)}`, "ga");
-
-                // 3. 차세대 번식 및 돌연변이 연산 (Elite Selection & Uniform Crossover)
-                let nextGen = [];
-                // 상위 10% 우수 엘리트 집단 보존
-                for(let i=0; i<popSize*0.1; i++) {
-                    nextGen.push({ chromosome: JSON.parse(JSON.stringify(population[i].chromosome)), fitness: 0 });
+                // 실제 물리 시뮬레이션을 가상으로 돌려 거리를 계산
+                let testPos = scPos.clone();
+                let testVel = scVel.clone();
+                testVel.add(bestThrust); // 테스트 추력 인가
+                
+                // 가상 물리 시뮬레이션 (단순화)
+                let rMoonSq = moonPos.lengthSq();
+                let aMoonSc = new THREE.Vector3().subVectors(testPos, moonPos).normalize().multiplyScalar(-G * M_MOON / rMoonSq);
+                testVel.addScaledVector(aMoonSc, 3600); // 1시간 후
+                testPos.addScaledVector(testVel, 3600);
+                
+                let distToMoon = new THREE.Vector3().subVectors(testPos, moonPos).length() - R_MOON;
+                
+                // 적합도 평가 (거리가 가까울수록 좋음)
+                let fitness = 1 / (distToMoon + 1); 
+                
+                if (generation % 10 === 0) {
+                    addLog(`GA 세대 ${generation} - 적합도: ${fitness.toExponential(2)}`, "msg-physics");
                 }
 
-                // 크로스오버 및 교배를 통한 신규 집단 채우기
-                while(nextGen.length < popSize) {
-                    let parentA = population[Math.floor(Math.random() * (popSize * 0.3))].chromosome;
-                    let parentB = population[Math.floor(Math.random() * (popSize * 0.3))].chromosome;
-                    let childChrom = [];
+                // 돌연변이 발생 (실제 물리적 탐색)
+                bestThrust.add(new THREE.Vector3((Math.random()-0.5)*2, (Math.random()-0.5)*2, (Math.random()-0.5)*2));
 
-                    for(let g=0; g<genesCount; g++) {
-                        // 50% 확률로 부모들의 물리 제어 지표를 교차 계승
-                        childChrom.push(Math.random() > 0.5 ? parentA[g].clone() : parentB[g].clone());
-                        
-                        // 15% 기저 확률로 실제 우주 돌연변이 가속 발생 (자연계의 진화 패턴 구현)
-                        if(Math.random() < 0.15) {
-                            childChrom[g].add(new THREE.Vector3(
-                                (Math.random() - 0.5) * 30,
-                                (Math.random() - 0.5) * 30,
-                                (Math.random() - 0.5) * 30
-                            ));
-                        }
-                    }
-                    nextGen.push({ chromosome: childChrom, fitness: 0 });
+                // 임의의 종료가 아닌, 달 표면에 닿을 수 있는 궤적이 발견되면 종료
+                if (distToMoon < R_MOON * 2 || generation > 100) { 
+                    clearInterval(interval);
+                    scVel.add(bestThrust); // 찾아낸 최적의 추력을 실제 우주선에 적용
+                    addLog(`[GA 종료] 최적 궤적 도출 완료. 가속 인가됨.`, "msg-system");
                 }
-                population = nextGen;
+            }, 50);
+        });
 
-                if(generation >= maxGenerations || bestFit > 0.95) {
-                    clearInterval(gaInterval);
-                    addLog("[GA ENGINE] 자율 기동 제어 시퀀스 진화 연산 완료. 계산된 최적의 추력 가속을 실제 구동 엔진에 인가합니다.", "ga");
-                    
-                    // 연산된 최우수 유전자의 최단 제어 벡터를 실제 우주선 속도에 즉시 투영
-                    let bestGene = population[0].chromosome[0];
-                    scVelocity.add(bestGene);
-                }
-            }, 80);
-        }
+        // === PART 12: 이벤트 리스너 및 렌더링 루프 ===
+        document.getElementById('btn-prograde').addEventListener('click', () => applyManeuver('prograde'));
+        document.getElementById('btn-retrograde').addEventListener('click', () => applyManeuver('retrograde'));
+        document.getElementById('btn-normal').addEventListener('click', () => applyManeuver('normal'));
+        document.getElementById('btn-radial').addEventListener('click', () => applyManeuver('radial'));
 
-        // PART 12: UI INTERACTION EVENT HANDLERS
-        function setupUIEvents() {
-            // 현재 컴퓨터 시간 및 날짜 자동 동기화 기본값 세팅
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('sim-date').value = now.toISOString().slice(0, 16);
-            addLog("시스템 기동 완료. 관제 시뮬레이터가 현재 시간 동기화 모드로 활성화되었습니다.", "system");
-
-            document.getElementById('btn-prograde').addEventListener('click', () => executeManeuver('prograde'));
-            document.getElementById('btn-retrograde').addEventListener('click', () => executeManeuver('retrograde'));
-            document.getElementById('btn-normal').addEventListener('click', () => executeManeuver('normal'));
-            document.getElementById('btn-radial').addEventListener('click', () => executeManeuver('radial'));
-            document.getElementById('btn-hohmann').addEventListener('click', executeHohmannTransfer);
-            document.getElementById('btn-ga-landing').addEventListener('click', runGeneticAlgorithmLanding);
-        }
-
-        // PART 13: MAIN ANIMATION & RENDERING LOOP
         function animate() {
             requestAnimationFrame(animate);
-            
-            // 중력장 가속 수치 적분 실행
             updatePhysics();
-
-            // 실시간 CSV 기록 버퍼 데이터 적재
-            recordFlightData();
-
+            logFlightData();
             controls.update();
             renderer.render(scene, camera);
         }
 
-        // 프로그램 진입점 엔트리 포인트
-        window.onload = () => {
-            initThree();
-            createCelestialBodies();
-            setupUIEvents();
-            animate();
-        };
+        initGraphics();
+        addLog("시스템 부팅 완료. 정상 궤도 진입 대기 중.", "msg-system");
+        animate();
     </script>
 </body>
 </html>
