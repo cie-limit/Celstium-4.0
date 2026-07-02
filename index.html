@@ -1612,11 +1612,6 @@ function animate() {
   S.rdr.render(S.scene, S.cam);
 }
 
-  syncMeshes();
-  updateCamera();
-  updateTelemetry();
-  S.rdr.render(S.scene, S.cam);
-}
 
 function boot() {
   if (typeof THREE === 'undefined') {
