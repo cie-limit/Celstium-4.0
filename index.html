@@ -900,69 +900,7 @@ function updateCamera() {
   S.ctrl.update();
 }
 
-/* ============ PART 22: 미션 프리셋 + 정확한 호만 계산 ============
-   핵심 수정: ship.vel 은 절대속도(태양중심). 지구 공전 속도(earth.vel) 더해야 함.
-   분사도 지구 상대속도 기준으로 적용.
-*/
-function resetShipToParkingOrbit() {
-  computeBodies(0);
-  const e = S.bodies.earth;
-  const alt = parseFloat($('parkingAlt')?.value || 200);
-  const r = e.R + alt;
-  // 지구 중심 기준 LEO: pos = (r, 0, 0), tangential vel = sqrt(mu_E/r)
-  const vCirc = Math.sqrt(e.mu / r);
-  S.ship.pos.copy(e.pos).add(new THREE.Vector3(r, 0, 0));
-  S.ship.vel.copy(e.vel).add(new THREE.Vector3(0, 0, vCirc));   // 절대속도 = 지구공전 + LEO상대속도
-  S.ship.fuel = S.ship.fuel0;
-  S.ship.dvUsed = 0;
-  S.ship.landed = false;
-  S.ship.crashed = false;
-  S.ship.refFrame = 'earth';
-  S.trailPos.length = 0;
-  lastTrailPos.copy(S.ship.pos);
-}
 
-function applyImpulseRelativeTo(centerBody, dvKmS, direction) {
-  // direction = 'prograde'|'retrograde'|'normal'|'radial' relative to centerBody
-  const relV = S.ship.vel.clone().sub(centerBody.vel);
-  const relP = S.ship.pos.clone().sub(centerBody.pos);
-  let dir;
-  if (relV.lengthSq() < 1e-12) return false;
-  if (direction === 'prograde')   dir = relV.clone().normalize();
-  else if (direction === 'retrograde') dir = relV.clone().normalize().negate();
-  else if (direction === 'normal')     dir = relP.clone().cross(relV).normalize();
-  else /* radial */                    dir = relP.clone().normalize();
-  // 연료 차감
-  const m0 = S.ship.dry + S.ship.fuel;
-  const ve_kms = S.ship.isp * G0;
-  const fuelNeed = m0 * (1 - Math.exp(-Math.abs(dvKmS) / ve_kms));
-  if (fuelNeed > S.ship.fuel) return false;
-  S.ship.vel.addScaledVector(dir, dvKmS);
-  S.ship.fuel -= fuelNeed;
-  S.ship.dvUsed += Math.abs(dvKmS) * 1000;
-  return true;
-}
-
-function applyPreset() {
-  const p = $('mPreset')?.value || 'leo';
-  resetShipToParkingOrbit();
-  if (p === 'leo') {
-    pushLog('LEO parking orbit established (200 km, ~7.79 km/s rel Earth)', 'sys');
-    return;
-  }
-  const e = S.bodies.earth;
-  if (p === 'hohmann_moon' || p === 'free_return') {
-    // 지구 중심 r1, r2
-    const r1 = S.ship.pos.distanceTo(e.pos);
-    const r2 = S.bodies.moon.pos.distanceTo(e.pos);
-    const aT = (r1 + r2) / 2;
-    const vT = Math.sqrt(e.mu * (2/r1 - 1/aT));
-    const vC = Math.sqrt(e.mu / r1);
-    const dv = vT - vC;
-    const ok = applyImpulseRelativeTo(e, dv, 'prograde');
-    if (ok) pushLog(`Hohmann → Moon. ΔV applied: ${fmt(dv*1000,1)} m/s, transfer time ≈ ${fmt(Math.PI*Math.sqrt(aT*aT*aT/e.mu)/3600,1)} h`, 'phys');
-    else pushLog('Not enough fuel for Hohmann transfer', 'err');
-    return;
 
 /* ============ PART 22: 미션 프리셋 (궤도면·위상 정렬 포함) ============
    근본 수정:
