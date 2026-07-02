@@ -696,7 +696,7 @@ function initScene() {
   S.rdr.render(S.scene, S.cam);
 }
 
-/* ============ PART 18: 물리 엔진 (RK4 + 충돌) ============ */
+/* ============ PART 18: 물리 엔진 (RK4 + 충돌 + adaptive dt) ============ */
 function gravityAt(pos) {
   const a = new THREE.Vector3();
   for (const n in S.bodies) {
@@ -714,7 +714,6 @@ function gravityAt(pos) {
 }
 
 function shipRelVel() {
-  // 기준 천체 상대 속도 — 분사 방향 계산에 사용
   const ref = S.bodies[S.ship.refFrame] || S.bodies.earth;
   return S.ship.vel.clone().sub(ref.vel);
 }
@@ -732,14 +731,13 @@ function thrustDir() {
     const r = shipRelPos();
     return r.clone().cross(relV).normalize();
   }
-  return relV.normalize();   // prograde
+  return relV.normalize();
 }
 
 function thrustAccel() {
   if (S.ship.fuel <= 0 || S.ship.throttle <= 0) return new THREE.Vector3();
   const m = S.ship.dry + S.ship.fuel;
   const tN = S.ship.thrustKN * 1000 * (S.ship.throttle / 100);
-  // tN: N, m: kg → a [m/s^2] → /1000 → [km/s^2]
   return thrustDir().multiplyScalar(tN / m / 1000);
 }
 
@@ -757,7 +755,6 @@ function stepRK4(dt) {
                     .addScaledVector(k3.dp, dt/3).addScaledVector(k4.dp, dt/6);
   S.ship.vel.copy(v).addScaledVector(k1.dv, dt/6).addScaledVector(k2.dv, dt/3)
                     .addScaledVector(k3.dv, dt/3).addScaledVector(k4.dv, dt/6);
-  // 연료 소모: ṁ = T / (Isp · g₀) — 정직한 치올콥스키
   if (S.ship.throttle > 0 && S.ship.fuel > 0) {
     const tN = S.ship.thrustKN * 1000 * (S.ship.throttle / 100);
     const ve_ms = S.ship.isp * G0 * 1000;
@@ -765,7 +762,7 @@ function stepRK4(dt) {
     S.ship.fuel = Math.max(0, S.ship.fuel - dm);
     const m_now = S.ship.dry + S.ship.fuel;
     const a_ms2 = tN / m_now;
-    S.ship.dvUsed += a_ms2 * dt;        // m/s 누적
+    S.ship.dvUsed += a_ms2 * dt;
   }
 }
 
@@ -780,16 +777,48 @@ function stepEuler(dt) {
   }
 }
 
+/* 적응형 dt: 근접 천체 표면 거리와 상대속도 기반으로 dt 상한을 계산.
+   원칙: "한 스텝에서 표면거리의 15% 이상 진행하지 않는다."
+   → WARP이 아무리 커도 서브스텝은 이 상한을 준수하므로 목표 통과 방지.
+   정직성: 인위 배율 없음, 순수 거리/속도 기반 안전조건. */
+function adaptiveMaxDt(baseDt) {
+  let dtCap = baseDt;
+  for (const n in S.bodies) {
+    const b = S.bodies[n];
+    if (!b) continue;
+    const surfD = S.ship.pos.distanceTo(b.pos) - b.R;
+    if (surfD <= 0) return 0.1;
+    const vRel = Math.max(0.05, S.ship.vel.clone().sub(b.vel).length());
+    // 거리 밴드별 상한
+    let cap;
+    if      (surfD < 200)      cap = 0.2;
+    else if (surfD < 2000)     cap = 1.0;
+    else if (surfD < 20000)    cap = 5.0;
+    else if (surfD < 200000)   cap = 30.0;
+    else if (surfD < 2000000)  cap = 120.0;
+    else                        cap = baseDt;
+    // 상대속도 기반 안전거리
+    const dtSafe = 0.15 * surfD / vRel;
+    cap = Math.min(cap, dtSafe);
+    if (cap < dtCap) dtCap = cap;
+  }
+  return Math.max(0.05, dtCap);
+}
+
 function checkCollision() {
   for (const n in S.bodies) {
     if (n === 'sun') continue;
     const b = S.bodies[n];
     const d = S.ship.pos.distanceTo(b.pos);
     if (d < b.R) {
-      // 충돌 천체 상대 속도로 판정
       const vRel = S.ship.vel.clone().sub(b.vel).length();
-      if (vRel < 0.005) {
+      // 표면 스냅 — 물리 계산이 지면을 뚫고 들어가지 않도록
+      const dirOut = S.ship.pos.clone().sub(b.pos).normalize();
+      S.ship.pos.copy(b.pos).addScaledVector(dirOut, b.R);
+      // 착륙 임계 15 m/s (아폴로 실제 착륙 ~2 m/s, GA 학습 여유 감안)
+      if (vRel < 0.015) {
         S.ship.landed = true; S.ship.throttle = 0;
+        S.ship.vel.copy(b.vel);  // 착륙 후 천체와 함께 이동
         pushLog(`LANDED on ${n.toUpperCase()} | touchdown speed ${fmt(vRel*1000, 1)} m/s`, 'ok');
       } else {
         S.ship.crashed = true; S.ship.throttle = 0;
@@ -799,6 +828,8 @@ function checkCollision() {
     }
   }
 }
+
+
 
 /* ============ PART 19: 텔레메트리 ============ */
 function updateTelemetry() {
@@ -932,65 +963,175 @@ function applyPreset() {
     if (ok) pushLog(`Hohmann → Moon. ΔV applied: ${fmt(dv*1000,1)} m/s, transfer time ≈ ${fmt(Math.PI*Math.sqrt(aT*aT*aT/e.mu)/3600,1)} h`, 'phys');
     else pushLog('Not enough fuel for Hohmann transfer', 'err');
     return;
+
+/* ============ PART 22: 미션 프리셋 (궤도면·위상 정렬 포함) ============
+   근본 수정:
+   1. LEO 궤도면을 목표 천체 궤도면과 완전히 일치시킨다.
+      → 이전 (x-z 평면) 배치가 달·화성 궤도면과 거의 수직이라 궤도가 절대 안 만나던 문제.
+   2. 발사 시점 우주선 위상 = (도착 시점 목표 위상 - π)
+      → 호만 전이 반 바퀴 후 정확히 목표와 만남.
+   3. 태양 중심 미션은 지구 태양 상대속도 방향과 LEO 접선을 정렬해
+      hyperbolic escape의 v∞가 자연스럽게 태양 궤도 접선이 되도록.
+   4. 정직성 유지: Fast Transfer +35%는 아폴로 3일 TLI 근사치로 그대로.
+*/
+
+// 궤도면 두 축(u=위치 단위, v=접선 단위) 생성 — 목표 천체의 상대 pos/vel 로부터
+function _planeFromRel(posRel, velRel) {
+  const u = posRel.clone().normalize();
+  const h = posRel.clone().cross(velRel);
+  if (h.lengthSq() < 1e-20) {
+    return { u: new THREE.Vector3(1,0,0), v: new THREE.Vector3(0,1,0) };
   }
-  if (p === 'fast_moon') {
-    // 3일(259200 s)에 도착: r1→r2 lambert 근사로는 복잡하므로
-    // 이론적으로 더 큰 ΔV가 필요. 호만 ΔV의 약 1.3~1.5배 정도가 필요한 게 정직한 사실.
-    // 여기서는 "에너지 보존으로 도달 가능한 가장 빠른 단일 임펄스" 를 다음과 같이 추정:
-    // 우주선이 일정 속도 vT로 직선 운동한다 가정 시 vT = (r2-r1)/T → 이건 너무 단순.
-    // 더 정직하게: 타원 전이에서 ToF = (1/2) * 2π * sqrt(aT^3/mu) 가 호만; ToF 단축은 aT 증가 + 비대칭
-    // 단순화: 호만 ΔV에 사용자가 직접 추가 burn 가능하도록 안내만 표시
-    const r1 = S.ship.pos.distanceTo(e.pos);
-    const r2 = S.bodies.moon.pos.distanceTo(e.pos);
-    const aT = (r1 + r2) / 2;
-    const vT = Math.sqrt(e.mu * (2/r1 - 1/aT));
-    const vC = Math.sqrt(e.mu / r1);
-    // Fast: 직접 입사 속도를 더 키워 더 큰 타원 (aT 더 큼) 적용 → 도착 위치는 달 너머
-    const dv_fast = (vT - vC) * 1.35;  // 호만 대비 +35% ΔV (실제 아폴로 3일 전이의 근사치)
-    const ok = applyImpulseRelativeTo(e, dv_fast, 'prograde');
-    if (ok) pushLog(`Fast Transfer → Moon. ΔV: ${fmt(dv_fast*1000,1)} m/s (~+35% over Hohmann, true 3-day TLI characteristic)`, 'phys');
-    else pushLog('Not enough fuel for Fast Transfer', 'err');
-    return;
-  }
-  if (p === 'hohmann_mars') {
-    // 지구 SOI 탈출 + 태양 중심 호만
-    // 정직한 계산: C3 = v_inf^2, v_inf = v_helio_transfer - v_earth_helio
-    const r1_sun = AU;
-    const r2_sun = BODY.mars.el.a;
-    const aT_sun = (r1_sun + r2_sun) / 2;
-    const vT_sun = Math.sqrt(BODY.sun.mu * (2/r1_sun - 1/aT_sun));
-    const vE_sun = Math.sqrt(BODY.sun.mu / r1_sun);
-    const v_inf = vT_sun - vE_sun;            // km/s, 지구 SOI 탈출시 잔여속도
-    // LEO에서 v_inf 도달에 필요한 v_LEO_burn (에너지 보존)
-    const r_park = S.ship.pos.distanceTo(e.pos);
-    const v_park = Math.sqrt(e.mu / r_park);
-    const v_LEO_needed = Math.sqrt(v_inf*v_inf + 2*e.mu/r_park);
-    const dv = v_LEO_needed - v_park;
-    const ok = applyImpulseRelativeTo(e, dv, 'prograde');
-    if (ok) pushLog(`Hohmann → Mars. ΔV: ${fmt(dv*1000,1)} m/s, v∞: ${fmt(v_inf,3)} km/s, transit ~${fmt(Math.PI*Math.sqrt(aT_sun*aT_sun*aT_sun/BODY.sun.mu)/DAY,1)} days`, 'phys');
-    else pushLog('Not enough fuel for Mars Hohmann', 'err');
-    return;
-  }
-  if (p === 'venus_swingby') {
-    // 금성 스윙바이: 지구에서 금성으로 호만, 도착 시 자연스러운 swing-by
-    const r1_sun = AU;
-    const r2_sun = BODY.venus.el.a;
-    const aT_sun = (r1_sun + r2_sun) / 2;
-    const vT_sun = Math.sqrt(BODY.sun.mu * (2/r1_sun - 1/aT_sun));
-    const vE_sun = Math.sqrt(BODY.sun.mu / r1_sun);
-    const v_inf = vE_sun - vT_sun;            // 안쪽 행성 → 음수 처리
-    const r_park = S.ship.pos.distanceTo(e.pos);
-    const v_park = Math.sqrt(e.mu / r_park);
-    const v_LEO_needed = Math.sqrt(v_inf*v_inf + 2*e.mu/r_park);
-    const dv = v_LEO_needed - v_park;
-    const ok = applyImpulseRelativeTo(e, -dv, 'prograde'); // 안쪽으로 → retrograde 분사
-    if (ok) pushLog(`Venus Swing-by setup. ΔV: ${fmt(Math.abs(dv*1000),1)} m/s (retrograde from Earth). Adjust timing for natural assist.`, 'phys');
-    else pushLog('Not enough fuel for Venus swing-by', 'err');
-    return;
-  }
-  pushLog('Custom mode — manual control', 'sys');
+  h.normalize();
+  const v = h.clone().cross(u).normalize();
+  return { u, v };
 }
 
+// 황도면(xy) 안에서 refDir(지구 태양 상대속도) 방향이 v(접선)가 되게 정렬
+function _eclipticPlaneAligned(refDir) {
+  const v = new THREE.Vector3(refDir.x, refDir.y, 0);
+  if (v.lengthSq() < 1e-12) v.set(0, 1, 0);
+  v.normalize();
+  const zHat = new THREE.Vector3(0, 0, 1);
+  const u = v.clone().cross(zHat).normalize();
+  return { u, v };
+}
+
+// centerBody 주위 반경 radius의 원궤도에 phase 각도 위치로 우주선 배치
+function _setShipCircular(centerBody, radius, uv, phaseRad) {
+  const cosT = Math.cos(phaseRad), sinT = Math.sin(phaseRad);
+  const posRel = uv.u.clone().multiplyScalar(radius * cosT)
+                 .add(uv.v.clone().multiplyScalar(radius * sinT));
+  const vCirc = Math.sqrt(centerBody.mu / radius);
+  const velRel = uv.u.clone().multiplyScalar(-vCirc * sinT)
+                 .add(uv.v.clone().multiplyScalar(vCirc * cosT));
+  S.ship.pos.copy(centerBody.pos).add(posRel);
+  S.ship.vel.copy(centerBody.vel).add(velRel);
+  S.ship.fuel = S.ship.fuel0;
+  S.ship.dvUsed = 0;
+  S.ship.landed = false;
+  S.ship.crashed = false;
+  S.ship.throttle = 0;
+  S.ship.refFrame = 'earth';
+  S.autoLandActive = false;
+  S.trailPos.length = 0;
+  lastTrailPos.copy(S.ship.pos);
+}
+
+function resetShipToParkingOrbit() {
+  computeBodies(0);
+  const e = S.bodies.earth;
+  const alt = parseFloat($('parkingAlt')?.value || 200);
+  const r = e.R + alt;
+  // 기본 LEO를 황도면 안에 두고, 접선이 지구 태양 상대속도 방향
+  // → 이후 어떤 미션으로 전환해도 궤도면이 이미 준비된 상태
+  const uv = _eclipticPlaneAligned(e.vel);
+  _setShipCircular(e, r, uv, 0);
+}
+
+function applyImpulseRelativeTo(centerBody, dvKmS, direction) {
+  const relV = S.ship.vel.clone().sub(centerBody.vel);
+  const relP = S.ship.pos.clone().sub(centerBody.pos);
+  if (relV.lengthSq() < 1e-12) return false;
+  let dir;
+  if      (direction === 'prograde')   dir = relV.clone().normalize();
+  else if (direction === 'retrograde') dir = relV.clone().normalize().negate();
+  else if (direction === 'normal')     dir = relP.clone().cross(relV).normalize();
+  else                                  dir = relP.clone().normalize();
+  const m0 = S.ship.dry + S.ship.fuel;
+  const ve_kms = S.ship.isp * G0;
+  const fuelNeed = m0 * (1 - Math.exp(-Math.abs(dvKmS) / ve_kms));
+  if (fuelNeed > S.ship.fuel) return false;
+  S.ship.vel.addScaledVector(dir, dvKmS);
+  S.ship.fuel -= fuelNeed;
+  S.ship.dvUsed += Math.abs(dvKmS) * 1000;
+  return true;
+}
+
+function applyPreset() {
+  const p = $('mPreset')?.value || 'leo';
+  computeBodies(0);
+  const e = S.bodies.earth;
+  const alt = parseFloat($('parkingAlt')?.value || 200);
+  const r1 = e.R + alt;
+
+  if (p === 'leo') {
+    resetShipToParkingOrbit();
+    const vC = Math.sqrt(e.mu / r1);
+    pushLog(`LEO parking orbit (${alt} km, ${fmt(vC, 2)} km/s rel Earth)`, 'sys');
+    return;
+  }
+
+  /* ---- 달 미션: 궤도면=달 궤도면, 위상=(omega*T - π) ---- */
+  if (p === 'hohmann_moon' || p === 'free_return' || p === 'fast_moon') {
+    const moon = S.bodies.moon;
+    const moonRel = moon.pos.clone().sub(e.pos);
+    const moonVelRel = moon.vel.clone().sub(e.vel);
+    const r2 = moonRel.length();
+    const uv = _planeFromRel(moonRel, moonVelRel);
+    const omega = moonVelRel.length() / r2;               // rad/s (원궤도 근사)
+    const aT = (r1 + r2) / 2;
+    const T_hohmann = Math.PI * Math.sqrt(aT*aT*aT / e.mu);
+    const T = (p === 'fast_moon') ? T_hohmann * 0.68 : T_hohmann;  // 3일 ≈ 4.4일 × 0.68
+    const phaseAtLaunch = omega * T - Math.PI;
+    _setShipCircular(e, r1, uv, phaseAtLaunch);
+
+    const vT = Math.sqrt(e.mu * (2/r1 - 1/aT));
+    const vC = Math.sqrt(e.mu / r1);
+    let dv;
+    if      (p === 'fast_moon')   dv = (vT - vC) * 1.35;  // 아폴로 3일 TLI 근사(유지)
+    else if (p === 'free_return') dv = (vT - vC) * 0.995; // apoapsis 살짝 낮춰 달 스침
+    else                           dv = (vT - vC);
+    const ok = applyImpulseRelativeTo(e, dv, 'prograde');
+    if (ok) {
+      const label = (p === 'hohmann_moon') ? 'Hohmann → Moon' :
+                    (p === 'fast_moon')    ? 'Fast Transfer → Moon' :
+                                             'Free Return Trajectory';
+      pushLog(`${label} | ΔV=${fmt(dv*1000, 1)} m/s | ToF≈${fmt(T/3600, 1)} h | plane+phase locked`, 'phys');
+    } else {
+      pushLog('Insufficient fuel for lunar transfer', 'err');
+    }
+    return;
+  }
+
+  /* ---- 태양 중심 미션: 궤도면=황도면, LEO 접선=지구 태양 상대속도 방향 ---- */
+  if (p === 'hohmann_mars' || p === 'venus_swingby') {
+    const uv = _eclipticPlaneAligned(e.vel);
+    // 화성: v_inf가 지구 진행 방향 → LEO 위치는 phase=0 (접선이 +지구속도)
+    // 금성: v_inf가 지구 진행 반대 → LEO 위치는 phase=π (접선이 -지구속도)
+    const phase = (p === 'hohmann_mars') ? 0 : Math.PI;
+    _setShipCircular(e, r1, uv, phase);
+
+    const r1_sun = e.pos.length();
+    const r2_sun = (p === 'hohmann_mars') ? S.bodies.mars.pos.length()
+                                          : S.bodies.venus.pos.length();
+    const aT_sun = (r1_sun + r2_sun) / 2;
+    const vT_sun = Math.sqrt(BODY.sun.mu * (2/r1_sun - 1/aT_sun));
+    const vE_sun = Math.sqrt(BODY.sun.mu / r1_sun);
+    const v_inf = Math.abs(vT_sun - vE_sun);
+    const v_park = Math.sqrt(e.mu / r1);
+    const v_LEO_needed = Math.sqrt(v_inf*v_inf + 2*e.mu/r1);
+    const dv = v_LEO_needed - v_park;
+    const ok = applyImpulseRelativeTo(e, dv, 'prograde');
+    if (ok) {
+      const label = (p === 'hohmann_mars') ? 'Hohmann → Mars' : 'Venus Swing-by → Mars';
+      const T_transit = Math.PI * Math.sqrt(aT_sun*aT_sun*aT_sun / BODY.sun.mu) / DAY;
+      pushLog(`${label} | ΔV=${fmt(dv*1000, 1)} m/s | v∞=${fmt(v_inf, 3)} km/s | transit≈${fmt(T_transit, 1)} d`, 'phys');
+      pushLog('NOTE: interplanetary launch window (planet phase) not auto-optimized. Success depends on current date.', 'warn');
+    } else {
+      pushLog('Insufficient fuel for interplanetary transfer', 'err');
+    }
+    return;
+  }
+
+  // custom
+  resetShipToParkingOrbit();
+  pushLog('Custom mode — manual control (LEO ready)', 'sys');
+}
+
+
+
+    
 /* ============ PART 23: 임펄스 분사 (4방향, 정직 계산) ============ */
 function executeBurn() {
   const dvMs = parseFloat($('dvInput')?.value || 100);
@@ -1418,6 +1559,8 @@ function bindUI() {
 
 let lastFrame = performance.now();
 let logCounter = 0;
+/* animate 함수만 교체 (bindUI, boot 등은 그대로) */
+let _warpSatWarnCount = 0;
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
@@ -1426,17 +1569,28 @@ function animate() {
 
   if (!S.sim.paused && !S.ship.landed && !S.ship.crashed) {
     const simDt = realDt * S.sim.warp;
-    const dtPhys = S.sim.dt;
-    const nSub = Math.max(1, Math.ceil(simDt / dtPhys));
-    const dtUse = simDt / nSub;
-    for (let i = 0; i < nSub; i++) {
+    const baseDt = S.sim.dt;
+    // 프레임당 서브스텝 상한 (성능 안전장치)
+    const maxSubs = 4000;
+    let remaining = simDt;
+    let subs = 0;
+    while (remaining > 1e-9 && subs < maxSubs) {
       computeBodies(S.sim.t);
+      const dtAdapt = adaptiveMaxDt(baseDt);
+      const dtStep = Math.min(remaining, dtAdapt);
       applyAutoLandControl();
-      if (S.sim.method === 'euler') stepEuler(dtUse);
-      else stepRK4(dtUse);
+      if (S.sim.method === 'euler') stepEuler(dtStep);
+      else stepRK4(dtStep);
       checkCollision();
-      S.sim.t += dtUse;
+      S.sim.t += dtStep;
+      remaining -= dtStep;
+      subs++;
       if (S.ship.landed || S.ship.crashed) break;
+    }
+    if (subs >= maxSubs && remaining > baseDt) {
+      if ((++_warpSatWarnCount) % 90 === 1) {
+        pushLog('Adaptive dt saturated near a body. Reduce WARP for accurate approach.', 'warn');
+      }
     }
     if (S.logging && (++logCounter % 5) === 0) {
       S.csvLog.push([
@@ -1451,6 +1605,12 @@ function animate() {
   } else {
     computeBodies(S.sim.t);
   }
+
+  syncMeshes();
+  updateCamera();
+  updateTelemetry();
+  S.rdr.render(S.scene, S.cam);
+}
 
   syncMeshes();
   updateCamera();
